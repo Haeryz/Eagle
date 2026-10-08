@@ -82,6 +82,37 @@ trivially, without improving the model.
 - **Ablation**: E2a trains on distilled targets with β = 0, isolating the distillation effect. E2b adds certainty
   forcing with β = 1.
 
+### M3 — GRPO rewarding accuracy *and* fewer fallbacks (E4; the paper's stated future work)
+- **References**: Perception-R1 (Yu et al., NeurIPS 2025): GRPO for detection with a Hungarian-matched reward.
+  d1 / diffu-GRPO (Zhao et al., NeurIPS 2025): policy gradients for parallel decoders with factorized block
+  likelihoods. Rex-Omni (Jiang et al., CVPR 2026): RL on a 3B coordinate-token detector removes SFT duplicate and
+  misaligned-coordinate artifacts. The two-reward normalization follows LightningRL (arXiv 2603.13319, preprint, used
+  for motivation only).
+- **Targets**: what SFT cannot reach. Supervised targets say what the right box is, but not "emit a block that passes
+  the reliability check". RL can reward that directly.
+- **Ported from the Perception-R1 reference code** (`github.com/linkangheng/PR1`):
+  - `pr1_detection_reward`: 0.25·format + 0.75·F1 + class + mean IoU over DETR-Hungarian-matched pairs (L1 + GIoU +
+    class cost, IoU > 0.5; no FP/FN penalty, as in their detection script).
+  - The GRPO loss −exp(logp − logp.detach())·A + β·k3-KL, with the reference being the same network with the adapter
+    disabled.
+  - Settings: β = 0.04, 8 generations per prompt, temperature 1.0, linear LR decay, grad clip 1.
+- **Adaptations to PBD**:
+  1. Rollouts use the model's own Hybrid decoding with coordinates *sampled* (not arg-maxed) in MTP blocks, so the
+     group explores. The fallback rule is unchanged.
+  2. A second reward r_par = 1 − (fallbacks / box blocks) is group-normalized separately and added to the accuracy
+     advantage, so neither reward needs a hand-tuned weight.
+  3. The rollout log-likelihood comes from **one teacher-forced pass in the PBD training layout**: the NTP stream
+     scores fallback tokens, and each MTP step is re-created as an [anchor, mask×5] block at its anchor's positions.
+     Only sampled tokens count as actions; deterministic structural tokens are excluded.
+- **Verified**: re-scoring a rollout reproduced the sampling-time log-probs of all 198 actions (116 MTP coordinates,
+  82 NTP tokens) with **max |Δ| = 0.0000** (fp32, `--check_consistency`). The RL gradient therefore uses exactly the
+  decode-time contexts.
+- **Deviation**: LR 1e-5 instead of PR1's 1e-6. PR1 fine-tunes all weights, while here only the LoRA adapter is
+  trained, and LoRA's optimal LR is about 10× higher than full fine-tuning's (Biderman et al., *LoRA Learns Less and
+  Forgets Less*, TMLR 2024). Steps are bounded by the single GPU: 150 steps × 2 prompts × 8 rollouts, initialized from
+  E2b.
+- **Code**: `eaglevl/train/grpo_pbd.py`. Rollout trace and coordinate sampling are in `generate()` / `decode_bbox_avg`.
+
 ### Instrumentation (needed to measure fallback at all)
 `generate()` now records, per sample: box blocks, fallbacks split by reason (format / ambiguity), and the
 coordinate top-1 probability and entropy. These go into each prediction's `decode_stats`.
@@ -117,6 +148,7 @@ HF checkpoint's `generate_utils.py`).
 | E2a | Self-distilled LoRA, β = 0 | queued |
 | E2b | Self-distilled LoRA + certainty forcing, β = 1 | queued |
 | E3 | E2b + M1 | queued |
+| E4 | E2b + GRPO (accuracy + parallelism reward) | queued |
 
 Results go in section 5. Every experiment is reported as hypothesis → method → code change → result against E0.
 
