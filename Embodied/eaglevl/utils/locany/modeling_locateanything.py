@@ -360,7 +360,8 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
         use_mtp = generation_mode in ('fast', 'hybrid')
         switch_to_ar_count = 0
         # Per-block fallback accounting: why each MTP box block was rejected (format vs spatial ambiguity)
-        block_stats = {'num_box_blocks': 0, 'switch_format': 0, 'switch_ambig': 0}
+        block_stats = {'num_box_blocks': 0, 'switch_format': 0, 'switch_ambig': 0,
+                       'log_block_features': generate_kwargs.pop('log_block_features', False), 'blocks': []}
         generate_kwargs['block_stats'] = block_stats
         # Optional per-token trace for RL (log-likelihood of a rollout under the exact decoding contexts):
         # each step records the MTP anchor index (or None for an AR step) and, per emitted token, how it was produced
@@ -424,6 +425,7 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
             """Sample tokens using MTP (Multi-Token Prediction) mode."""
             next_token_logits = outputs.logits[:, -n_future_tokens:, :]
             block_stats['ambiguous_block'] = False
+            block_stats.pop('block_features', None)
             probs, confidence, x0, box_avg = sample_tokens(
                 next_token_logits, generated, self.token_ids, keep_k=5, **generate_kwargs
             )
@@ -450,6 +452,8 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
                 trace.append((generated.size(1) - 1, kinds, logps))
             if out_type in ('coord_box', 'point_box', 'empty_box', 'error_box'):
                 block_stats['num_box_blocks'] += 1
+                if block_stats['log_block_features'] and 'block_features' in block_stats:
+                    block_stats['blocks'].append({'type': out_type, **block_stats['block_features']})
             if out_type == 'error_box':
                 block_stats['switch_ambig' if block_stats['ambiguous_block'] else 'switch_format'] += 1
             out_token = torch.tensor(out_pattern['tokens'], dtype=x0.dtype, device=x0.device)
@@ -571,6 +575,9 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
                     f"sum_coord_top1={block_stats.get('sum_coord_top1', 0.0):.4f}; " + \
                     f"sum_coord_entropy={block_stats.get('sum_coord_entropy', 0.0):.4f}; " + \
                     f"num_coords_low_conf={block_stats.get('num_coords_low_conf', 0)}\n"
+            if block_stats['log_block_features']:
+                import json as _json
+                out_info += f"BlockFeatures={_json.dumps(block_stats['blocks'])}\n"
             print(out_info)
 
             if return_trace:

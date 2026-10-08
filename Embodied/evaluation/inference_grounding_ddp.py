@@ -144,12 +144,14 @@ def get_args():
         choices=["fast", "slow", "hybrid"],
         help="Generation mode: 'fast' (MTP only), 'slow' (AR only), 'hybrid' (MTP + AR fallback).",
     )
-    parser.add_argument("--dtype", type=str, default="bfloat16", choices=["bfloat16", "float16"],
+    parser.add_argument("--dtype", type=str, default="bfloat16", choices=["bfloat16", "float16", "float32"],
                         help="Model dtype; use float16 on pre-Ampere GPUs.")
     parser.add_argument("--lora_path", type=str, default=None, help="Optional LoRA adapter to merge into the LLM.")
     parser.add_argument("--constrained_block", action="store_true",
                         help="Grammar-constrained MTP box blocks (DINGO-style).")
     parser.add_argument("--seed", type=int, default=None, help="Seed for per-sample reproducible sampling.")
+    parser.add_argument("--log_block_features", action="store_true",
+                        help="Store per-MTP-block reliability features (top-1, spread, entropy) in decode_stats.")
     parser.add_argument(
         "--output_video",
         type=str,
@@ -237,6 +239,7 @@ class LocateAnythingWorker:
         self.constrained_block = constrained_block
         self.seed = seed
         self.temperature = 0.7  # eval default; 0 gives greedy decoding (used for self-distillation targets)
+        self.log_block_features = False
         self.last_stats = None
         self.model = load_model(model_path, dtype=dtype, lora_path=lora_path)
         self.processor = AutoProcessor.from_pretrained(
@@ -299,6 +302,7 @@ class LocateAnythingWorker:
             verbose=True,
             constrained_block=self.constrained_block,
             temperature=self.temperature,
+            log_block_features=self.log_block_features,
         )
 
         if self.seed is not None:
@@ -717,6 +721,7 @@ def main():
         args.model_path, device=device, generation_mode=args.generation_mode, dtype=args.dtype,
         lora_path=args.lora_path, constrained_block=args.constrained_block, seed=args.seed,
     )
+    worker.log_block_features = args.log_block_features or args.generation_mode == "fast"
     
     # Load test data
     if is_main_process():

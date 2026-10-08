@@ -359,6 +359,18 @@ def decode_bbox_avg(
         first_valid_ids = torch.multinomial(coord_probs / coord_probs.sum(-1, keepdim=True), 1).squeeze(-1) \
             + coord_start_token_id
     _record_coord_stats(stats, probs[1:5])
+    if stats is not None and stats.get('log_block_features'):
+        # Per-block reliability features (for evaluating fallback criteria as error detectors; logging only)
+        mask = (pos_ids >= coord_start_token_id) & (pos_ids <= coord_end_token_id)
+        spread = torch.where(mask, pos_ids, pos_ids.new_tensor(-999999)).max(-1)[0] \
+            - torch.where(mask, pos_ids, pos_ids.new_tensor(999999)).min(-1)[0]
+        p = probs[1:5].float()
+        stats['block_features'] = {
+            'top1': [round(v, 4) for v in pos_probs.gather(-1, mask.long().argmax(-1, keepdim=True)).squeeze(-1).tolist()],
+            'spread': [int(v) if c > 1 else 0 for v, c in zip(spread.tolist(), mask.sum(-1).tolist())],
+            'entropy': [round(v, 4) for v in (-(p * p.clamp_min(1e-12).log()).sum(-1)).tolist()],
+            'abnormal': coord_is_abnormal(pos_probs, pos_ids, token_ids).tolist(),
+        }
     if generation_mode == 'hybrid':
         # Normal positions take top-1 (first_valid_ids); abnormal positions are replaced with 0
         is_abnormal = coord_is_abnormal(pos_probs, pos_ids, token_ids)

@@ -42,7 +42,7 @@ def prepare_generation_inputs(processor_inputs, device):
 
 
 def build_generate_kwargs(prepared_inputs, processor, generation_mode, max_new_tokens, include_eos_token=False,
-                          verbose=False, constrained_block=False, temperature=0.7):
+                          verbose=False, constrained_block=False, temperature=0.7, log_block_features=False):
     tokenizer = getattr(processor, "tokenizer", None)
     if tokenizer is None and hasattr(processor, "batch_decode"):
         tokenizer = processor
@@ -61,6 +61,7 @@ def build_generate_kwargs(prepared_inputs, processor, generation_mode, max_new_t
         generation_mode=generation_mode,
         verbose=verbose,
         constrained_block=constrained_block,
+        log_block_features=log_block_features,
     )
 
     if prepared_inputs["image_grid_hws"] is not None:
@@ -122,7 +123,11 @@ def parse_statistic_info(raw_output):
     if not (isinstance(raw_output, tuple) and len(raw_output) == 3 and isinstance(raw_output[2], str)):
         return None
     stats = {}
-    for key, value in re.findall(r"([\w\(\)]+)=([^;]+)", raw_output[2]):
+    info, _, block_features = raw_output[2].partition("BlockFeatures=")
+    if block_features:
+        import json
+        stats["blocks"] = json.loads(block_features)
+    for key, value in re.findall(r"([\w\(\)]+)=([^;]+)", info):
         try:
             stats[key.strip()] = float(value)
         except ValueError:
