@@ -139,7 +139,9 @@ def action_logps(lm_base, vis, image_token_index, ids, pos, actions, coord_range
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model_path", default="work_dirs/la3b_eval")
-    ap.add_argument("--init_lora", required=True, help="adapter to start from (e.g. the E2b SFT adapter)")
+    ap.add_argument("--init_lora", required=True,
+                    help="SFT adapter to start from (e.g. E2b); merged into the weights, then a fresh LoRA is trained")
+    ap.add_argument("--lora_r", type=int, default=32)  # same rank (and alpha = 2r) as the SFT adapter
     ap.add_argument("--prompts_jsonl", default="work_dirs/seqkd/raw.jsonl")
     ap.add_argument("--image_root", default="work_dirs/seqkd/images")
     ap.add_argument("--coco_ann", default="work_dirs/coco_ann/instances_train2017.json")
@@ -167,12 +169,19 @@ def main():
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     dtype = torch.float16 if device == "cuda" else torch.float32
 
-    from peft import PeftModel
+    from peft import LoraConfig, PeftModel, get_peft_model
     from transformers import AutoModel, AutoProcessor
 
     model = AutoModel.from_pretrained(args.model_path, trust_remote_code=True, torch_dtype=dtype).to(device)
     processor = AutoProcessor.from_pretrained(args.model_path, trust_remote_code=True, use_fast=True)
-    model.language_model = PeftModel.from_pretrained(model.language_model, args.init_lora, is_trainable=True)
+    # Start from the SFT policy: merge its adapter into the weights, then train a *fresh* LoRA (B initialized to 0).
+    # Disabling the fresh adapter then gives exactly the initial policy, which is the KL reference, as in PR1
+    # (reference = initial model). Wrapping the SFT adapter itself would make the reference the original base model.
+    model.language_model = PeftModel.from_pretrained(model.language_model, args.init_lora).merge_and_unload()
+    model.language_model = get_peft_model(model.language_model, LoraConfig(
+        r=args.lora_r, lora_alpha=2 * args.lora_r, lora_dropout=0.0, task_type="CAUSAL_LM",
+        target_modules=["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj",
+                        "mlp.gate_proj", "mlp.down_proj", "mlp.up_proj"]))
     model.eval()
     lm = model.language_model                       # PeftModelForCausalLM
     lm_base = lm.base_model.model                   # Qwen2ForCausalLM with LoRA layers injected

@@ -143,5 +143,7 @@ def load_model(model_path, dtype="bfloat16", lora_path=None):
     if lora_path:
         from peft import PeftModel
 
-        model.language_model = PeftModel.from_pretrained(model.language_model, lora_path).merge_and_unload()
+        # comma-separated adapters are merged in order (e.g. SFT adapter, then the RL adapter trained on top of it)
+        for path in lora_path.split(","):
+            model.language_model = PeftModel.from_pretrained(model.language_model, path).merge_and_unload()
     return model
