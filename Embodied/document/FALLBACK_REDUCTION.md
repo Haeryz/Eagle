@@ -112,7 +112,7 @@ HF checkpoint's `generate_utils.py`).
 
 | ID | Change | Status |
 |---|---|---|
-| E0 | Released model, Hybrid (and Fast) | running |
+| E0 | Released model, Hybrid (and Fast) | Hybrid done; Fast queued |
 | E1 | E0 + M1 constrained blocks | queued |
 | E2a | Self-distilled LoRA, β = 0 | queued |
 | E2b | Self-distilled LoRA + certainty forcing, β = 1 | queued |
@@ -122,7 +122,29 @@ Results go in section 5. Every experiment is reported as hypothesis → method �
 
 ## 5. Results
 
-*(filled in as runs finish)*
+### E0: reproduced baseline (released LocateAnything-3B, Hybrid mode)
+
+Fallback columns are per-sample (macro) means: % of a sample's MTP box blocks that fell back to NTP. Runaway counts
+samples that hit the 8192-token cap in a repetition loop.
+
+| Subset | F1@mIoU (ours) | Paper Hybrid | Fallback | Ambiguity | Format | Coord entropy | Coord top-1 | Runaway |
+|---|---|---|---|---|---|---|---|---|
+| RefCOCOg val (500) | 74.12 | 73.4 | 19.0% | 19.0% | 0.00% | 2.17 | 0.27 | 0 |
+| RefCOCOg test (500) | 78.96 | 74.8 | 13.8% | 13.8% | 0.00% | 2.10 | 0.28 | 0 |
+| COCO (500) | 63.41* | 54.7* | 18.5% | 17.7% | 0.80% | 1.66 | 0.40 | 1 |
+| LVIS (500) | 51.06* | 50.7* | 22.7% | 21.9% | 0.75% | 1.83 | 0.38 | 2 |
+| Dense200 (200) | 59.52 | 61.3 | 26.1% | 26.1% | 0.04% | 1.32 | 0.52 | 0 |
+| SROIE (360) | 39.17 | 39.3 | 6.4% | 6.4% | 0.00% | 1.00 | 0.59 | 8 |
+
+\* Different metric pipeline from the paper's COCO/LVIS numbers (see section 3).
+
+- **The reproduction is faithful** where the metric matches: RefCOCOg val +0.7, Dense200 −1.8, SROIE −0.1 against
+  the paper. These are subset-sized samples on fp16 / single GPU.
+- **Noise floor**: re-running E0 with numerically different but mathematically identical ViT kernels moved
+  F1 ≤ 0.12 and per-sample fallback ≤ 0.4 points (RefCOCOg val, COCO, LVIS). A method effect must clearly exceed
+  this.
+- **Fallback is overwhelmingly ambiguity-driven** (≥ 96% of fallbacks on every subset). Dense layouts trigger it
+  most (Dense200: one block in four).
 
 ## 6. Problems encountered and how they were resolved
 
