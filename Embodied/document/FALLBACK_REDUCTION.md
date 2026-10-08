@@ -145,7 +145,7 @@ HF checkpoint's `generate_utils.py`).
 |---|---|---|
 | E0 | Released model, Hybrid (and Fast) | Hybrid done; Fast queued |
 | E1 | E0 + M1 constrained blocks | queued |
-| E2a | Self-distilled LoRA, β = 0 | trained; Hybrid eval 5/6 |
+| E2a | Self-distilled LoRA, β = 0 | done (Hybrid, 6/6) |
 | E2b | Self-distilled LoRA + certainty forcing, β = 1 | trained; eval queued |
 | E3 | E2b + M1 | queued |
 | E4 | E2b + GRPO (accuracy + parallelism reward) | queued |
@@ -190,7 +190,7 @@ makes per-coordinate targets unimodal (Zhou et al., ICLR 2020), so fewer coordin
 | COCO | 63.41 → 64.21 | +0.80 | 18.5 → 16.3 | −2.2 | 19.4 → 21.7 | 1.66 → 0.66 |
 | LVIS | 51.06 → 52.64 | +1.58 | 22.7 → 22.8 | +0.1 | 14.2 → 18.3 | 1.83 → 0.78 |
 | **Dense200** | **59.52 → 64.62** | **+5.10** | **26.1 → 21.3** | **−4.8** | 26.1 → 23.1 | 1.32 → 0.73 |
-| SROIE | *(running)* | | | | | |
+| SROIE | 39.17 → 41.31 | +2.14 | 6.4 → 5.5 | −0.9 | 8.5 → 7.0 | 1.00 → 0.62 |
 
 - **Accuracy improves on every subset.** Dense200 Hybrid (64.6) now exceeds the paper's own Slow / NTP-only mode
   (61.5).
