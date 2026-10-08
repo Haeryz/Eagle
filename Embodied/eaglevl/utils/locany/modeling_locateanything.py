@@ -480,6 +480,8 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
             else:
                 prepare_inputs = _prepare_input_in_ar(generated)
 
+            # only the last block's logits are sampled (MTP: last n_future_tokens, AR: last 1)
+            prepare_inputs['logits_to_keep'] = n_future_tokens
             if iter_round == 1:
                 prepare_inputs.update({
                     'visual_features': vit_embeds,

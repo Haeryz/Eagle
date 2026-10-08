@@ -57,7 +57,7 @@ python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port="$PO
   --max_grad_norm 1.0 \
   --lr_scheduler_type "cosine" \
   --logging_steps 1 \
-  --sample_log_interval 10 \
+  --sample_log_interval "${SAMPLE_LOG_INTERVAL:-10}" \
   --packing_buffer_size 16 \
   --max_seq_length "$MAX_SEQ_LENGTH" \
   --max_num_tokens_per_sample "$MAX_SEQ_LENGTH" \

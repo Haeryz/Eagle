@@ -119,21 +119,20 @@ def sdpa_attention(
         q, k, v: tensor of shape (batch_size, seqlen, num_heads, head_dim),
             or (tot_seqlens, num_heads, head_dim) if packing.
     """
+    # Block-diagonal attention over packed images == unmasked attention within each image. Running SDPA per
+    # segment without a mask lets PyTorch pick a memory-efficient kernel instead of materializing a dense
+    # [seq, seq] mask (needed when flash-attn is unavailable, e.g. pre-Ampere GPUs with large images).
     seq_length = q.shape[0]
-    attention_mask = torch.zeros(
-        [1, seq_length, seq_length], device=q.device, dtype=torch.bool
-    )
+    outputs = []
     for i in range(1, len(q_cu_seqlens)):
-        attention_mask[
-            ...,
-            q_cu_seqlens[i - 1] : q_cu_seqlens[i],
-            q_cu_seqlens[i - 1] : q_cu_seqlens[i],
-        ] = True
-    q = q.transpose(0, 1)
-    k = k.transpose(0, 1)
-    v = v.transpose(0, 1)
-    attn_output = F.scaled_dot_product_attention(q, k, v, attention_mask, dropout_p=0.0)
-    attn_output = attn_output.transpose(0, 1)
+        s, e = q_cu_seqlens[i - 1], q_cu_seqlens[i]
+        # fused SDPA kernels require 4D [batch, heads, seq, head_dim] inputs
+        out = F.scaled_dot_product_attention(
+            q[s:e].transpose(0, 1).unsqueeze(0), k[s:e].transpose(0, 1).unsqueeze(0),
+            v[s:e].transpose(0, 1).unsqueeze(0), dropout_p=0.0,
+        )
+        outputs.append(out.squeeze(0).transpose(0, 1))
+    attn_output = torch.cat(outputs, dim=0)
     attn_output = attn_output.reshape(seq_length, -1)
     return attn_output
 

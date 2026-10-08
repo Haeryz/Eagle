@@ -1448,9 +1448,13 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        logits_to_keep: int = 0,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
         r"""
         Args:
+            logits_to_keep (`int`, *optional*, defaults to 0):
+                If > 0, only compute logits for the last `logits_to_keep` positions (as in HF `logits_to_keep`).
+                Generation only reads the last block, so this avoids a [seq, vocab] tensor at prefill.
             labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
                 Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
                 config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
@@ -1497,6 +1501,8 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
         )
 
         hidden_states = outputs[0]
+        if logits_to_keep > 0 and labels is None:
+            hidden_states = hidden_states[:, -logits_to_keep:, :]
         logits = self.lm_head(hidden_states)
         logits = logits.float()
 
