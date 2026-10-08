@@ -16,11 +16,12 @@ from statistics import mean
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "metrics"))
 from other_metric import UniversalMetricsCalculator  # noqa: E402
 
+RUNAWAY_TOKENS = 8000  # outputs this long hit the max_new_tokens=8192 cap (repetition loops)
 IOU_THRESHOLDS = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
 
 
 def f1_by_dataset(data):
-    with contextlib.redirect_stdout(io.StringIO()):
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         all_results = UniversalMetricsCalculator().calculate_all_metrics(data, IOU_THRESHOLDS)
     out = {}
     for iou, results in all_results.items():
@@ -38,8 +39,19 @@ def decode_summary(data):
         return {}
     tot = lambda k: sum(s.get(k, 0.0) for s in stats)
     blocks, coords = tot("num_box_blocks"), tot("num_coords")
+    # Per-sample (macro) averages are the primary numbers: pooled ratios are dominated by the few samples that
+    # run away (repeat boxes until max_new_tokens), and which samples run away is sensitive to tiny numeric noise.
+    with_blocks = [s for s in stats if s.get("num_box_blocks", 0) > 0]
+    with_coords = [s for s in stats if s.get("num_coords", 0) > 0]
+    macro = lambda f, pool: 100 * mean(f(s) for s in pool) if pool else 0.0
     return {
         "samples": len(stats),
+        "fallback_rate_macro": macro(lambda s: s["switch_to_ar"] / s["num_box_blocks"], with_blocks),
+        "fallback_ambig_rate_macro": macro(lambda s: s["switch_ambig"] / s["num_box_blocks"], with_blocks),
+        "fallback_format_rate_macro": macro(lambda s: s["switch_format"] / s["num_box_blocks"], with_blocks),
+        "coord_entropy_macro": mean(s["sum_coord_entropy"] / s["num_coords"] for s in with_coords) if with_coords else 0.0,
+        "coord_top1_macro": mean(s["sum_coord_top1"] / s["num_coords"] for s in with_coords) if with_coords else 0.0,
+        "runaway_samples": sum(s.get("num_tokens", 0) >= RUNAWAY_TOKENS for s in stats),
         "box_blocks": int(blocks),
         "fallback_rate": 100 * tot("switch_to_ar") / max(blocks, 1),
         "fallback_format_rate": 100 * tot("switch_format") / max(blocks, 1),
@@ -69,8 +81,10 @@ def main():
         for ds, f1 in f1_by_dataset(data).items():
             rows.append({"run": name, "dataset": ds, **f1, **dec})
 
-    cols = ["run", "dataset", "f1_miou", "f1_50", "fallback_rate", "fallback_format_rate", "fallback_ambig_rate",
-            "coord_top1", "coord_entropy", "coord_low_conf_rate", "bps", "forward_steps_per_box", "samples"]
+    cols = ["run", "dataset", "f1_miou", "f1_50", "fallback_rate_macro", "fallback_ambig_rate_macro",
+            "fallback_format_rate_macro", "coord_entropy_macro", "coord_top1_macro", "runaway_samples",
+            "fallback_rate", "fallback_format_rate", "fallback_ambig_rate", "coord_entropy", "bps",
+            "forward_steps_per_box", "samples"]
     print("| " + " | ".join(cols) + " |")
     print("|" + "---|" * len(cols))
     for r in rows:
