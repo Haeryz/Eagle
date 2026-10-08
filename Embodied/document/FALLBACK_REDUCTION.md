@@ -291,7 +291,7 @@ the mass-blind heuristic with a principled, mass-aware criterion such as EB-Samp
 (Ben-Hamu et al., NeurIPS 2025). The latter must be applied to the baseline as well and validated as an error
 detector (it should fire on blocks whose Fast-mode box is wrong), not tuned to lower the fallback count.
 
-## 7. Next steps (next week)
+## 6. Next steps (next week)
 
 1. **Evaluation scale.** COCO, LVIS and RefCOCOg val/test were evaluated on fixed, seeded 500-sample subsets
    (Dense200 and SROIE in full), because of single-GPU time (~1 h 50 min per configuration on the subsets vs.
@@ -314,7 +314,7 @@ detector (it should fire on blocks whose Fast-mode box is wrong), not tuned to l
 5. **Speed.** Report BPS on the paper's hardware (H100), since 2080 Ti throughput is only relative. Measure the
    end-to-end speed-up from fewer fallbacks.
 
-## 8. Problems encountered and how they were resolved
+## 7. Problems encountered and how they were resolved
 
 | # | Problem | Resolution |
 |---|---|---|
