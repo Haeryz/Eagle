@@ -271,7 +271,7 @@ def main():
                 lm_base.model.training = True
                 with torch.no_grad():
                     lp = action_logps(lm_base, vis, model.config.image_token_index, ids_, pos_, actions,
-                                      coord_range, device, args.temperature, args.top_p)
+                                      coord_range, device, args.temperature, args.top_p)  # exact sampling transform
                 ref = torch.tensor([a[3] for a in actions], device=device)
                 diff = (lp - ref).abs()
                 by_kind = defaultdict(list)
@@ -296,10 +296,13 @@ def main():
                 if not actions or a == 0.0:
                     continue
                 with torch.no_grad(), lm.disable_adapter():
+                    # Policy and reference log-probs from raw logits, as Perception-R1's get_per_token_logps (no
+                    # temperature / nucleus truncation): truncation gives tokens outside the reference nucleus
+                    # log-prob ~ -1e38 and an exploding KL (observed: k3 ~ 1.5e36 at step 0).
                     ref_lp = action_logps(lm_base, vis, model.config.image_token_index, ids_, pos_, actions,
-                                          coord_range, device, args.temperature, args.top_p)
+                                          coord_range, device)
                 lp = action_logps(lm_base, vis, model.config.image_token_index, ids_, pos_, actions,
-                                  coord_range, device, args.temperature, args.top_p)
+                                  coord_range, device)
                 k3 = torch.exp(ref_lp - lp) - (ref_lp - lp) - 1
                 per_token = -torch.exp(lp - lp.detach()) * a + args.beta * k3
                 loss = per_token.mean() / n_rollouts
