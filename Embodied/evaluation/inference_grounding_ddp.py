@@ -24,7 +24,11 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from tqdm import tqdm
 from transformers import AutoProcessor, AutoModel
+import zlib
+
 from inference_compat import (
+    load_model,
+    parse_statistic_info,
     apply_chat_template,
     build_generate_kwargs,
     decode_generation_output,
@@ -140,6 +144,12 @@ def get_args():
         choices=["fast", "slow", "hybrid"],
         help="Generation mode: 'fast' (MTP only), 'slow' (AR only), 'hybrid' (MTP + AR fallback).",
     )
+    parser.add_argument("--dtype", type=str, default="bfloat16", choices=["bfloat16", "float16"],
+                        help="Model dtype; use float16 on pre-Ampere GPUs.")
+    parser.add_argument("--lora_path", type=str, default=None, help="Optional LoRA adapter to merge into the LLM.")
+    parser.add_argument("--constrained_block", action="store_true",
+                        help="Grammar-constrained MTP box blocks (DINGO-style).")
+    parser.add_argument("--seed", type=int, default=None, help="Seed for per-sample reproducible sampling.")
     parser.add_argument(
         "--output_video",
         type=str,
@@ -219,13 +229,16 @@ def get_world_size():
 
 
 class LocateAnythingWorker:
-    def __init__(self, model_path, device='cuda', generation_mode: str = 'hybrid'):
+    def __init__(self, model_path, device='cuda', generation_mode: str = 'hybrid', dtype='bfloat16',
+                 lora_path=None, constrained_block=False, seed=None):
         self.model_id = model_path
         self.device = device
         self.generation_mode = generation_mode
-        self.model = AutoModel.from_pretrained(
-            model_path, trust_remote_code=True, torch_dtype=torch.bfloat16
-        )
+        self.constrained_block = constrained_block
+        self.seed = seed
+        self.temperature = 0.7  # eval default; 0 gives greedy decoding (used for self-distillation targets)
+        self.last_stats = None
+        self.model = load_model(model_path, dtype=dtype, lora_path=lora_path)
         self.processor = AutoProcessor.from_pretrained(
             model_path, trust_remote_code=True, use_fast=True
         )
@@ -283,9 +296,16 @@ class LocateAnythingWorker:
             generation_mode=self.generation_mode,
             max_new_tokens=max_new_tokens,
             include_eos_token=True,
+            verbose=True,
+            constrained_block=self.constrained_block,
+            temperature=self.temperature,
         )
 
+        if self.seed is not None:
+            # Per-sample seed so sampled decoding is reproducible and identical across compared runs
+            torch.manual_seed(self.seed + zlib.crc32(question.encode("utf-8")) + zlib.crc32(str(image.size).encode()))
         raw_output = self.model.generate(**generate_kwargs)
+        self.last_stats = parse_statistic_info(raw_output)
         output_text = decode_generation_output(
             raw_output,
             prepared_inputs["input_ids"],
@@ -693,7 +713,10 @@ def main():
         print(f"Loading model from: {args.model_path}")
     if is_main_process():
         print(f"Generation Mode: {args.generation_mode}")
-    worker = LocateAnythingWorker(args.model_path, device=device, generation_mode=args.generation_mode)
+    worker = LocateAnythingWorker(
+        args.model_path, device=device, generation_mode=args.generation_mode, dtype=args.dtype,
+        lora_path=args.lora_path, constrained_block=args.constrained_block, seed=args.seed,
+    )
     
     # Load test data
     if is_main_process():
@@ -855,6 +878,8 @@ def main():
         
         if "gt_mask" in gt:
             prediction["gt"] = gt["gt_mask"]
+        if worker.last_stats is not None:
+            prediction["decode_stats"] = worker.last_stats
         
         local_predictions.append(prediction)
     

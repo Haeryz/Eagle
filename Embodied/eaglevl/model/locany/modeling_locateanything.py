@@ -23,7 +23,7 @@ from transformers.generation import GenerationMixin
 from transformers import GenerationConfig
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import ModelOutput, logging
+from transformers.utils import ModelOutput, is_flash_attn_2_available, logging
 from .configuration_locateanything import LocateAnythingConfig
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
 from eaglevl.sp_utils import  (get_pg_manager, ring_split_for_sequence_parallel)
@@ -92,7 +92,9 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
             self.vision_model = vision_model
         else:
             if config.vision_config.model_type == 'moonvit':
-                config.vision_config._attn_implementation = 'flash_attention_2'
+                # flash-attn is unavailable on pre-Ampere GPUs; MoonViT has an sdpa path for that case
+                config.vision_config._attn_implementation = (
+                    'flash_attention_2' if is_flash_attn_2_available() else 'sdpa')
                 self.vision_model = MoonVitPretrainedModel(config.vision_config)
             else:
                 raise ValueError(f'Unsupported vision model type: {config.vision_config.model_type}. Only moonvit is supported.')
@@ -166,6 +168,55 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
         self.language_model.enable_input_require_grads()
         self.language_model.print_trainable_parameters()
         self.use_llm_lora = True
+
+    def mtp_label_indices(self, position_ids, shift_labels, sub_sample_lengths):
+        """Indices (in the shifted, flattened hidden-state space) of MTP-block positions with a supervised target.
+
+        Each packed sub-sample is [original sequence | MTP blocks | pad]; the MTP region starts where the position
+        ids first drop (blocks re-use the original positions). Hidden state t predicts shift_labels[t] = labels[t+1].
+        """
+        pe = position_ids.reshape(-1)
+        ssl = sub_sample_lengths[0] if isinstance(sub_sample_lengths, list) else sub_sample_lengths
+        is_mtp = torch.zeros_like(pe, dtype=torch.bool)
+        start = 0
+        for n in ssl.tolist():
+            seg = pe[start:start + n]
+            drops = (seg[1:] < seg[:-1]).nonzero()
+            if drops.numel() > 0:
+                is_mtp[start + int(drops[0, 0]) + 1:start + n] = True
+            start += n
+        return (is_mtp[:-1] & shift_labels.ne(IGNORE_INDEX)).nonzero().squeeze(1)
+
+    def certainty_forcing_loss(self, shift_hidden_states, shift_labels, position_ids, sub_sample_lengths,
+                               lm_head_weight, temperature=0.5, max_positions=512):
+        """Certainty-forcing term of dParallel (Chen et al., ICLR 2026, Eq. 8), ported from the authors' reference
+        `DLMTrainer.compute_loss` (github.com/czg1225/dParallel, Dream/dream_train.py): mean entropy of the
+        temperature-scaled (T=0.5) prediction over the masked positions the model already predicts correctly.
+        Here the masked positions are the PBD MTP-block tokens."""
+        idx = self.mtp_label_indices(position_ids, shift_labels, sub_sample_lengths)
+        if idx.numel() == 0:
+            return shift_hidden_states.sum() * 0.0
+        if idx.numel() > max_positions:  # unbiased subsample to bound the [n, vocab] logit memory
+            idx = idx[torch.randperm(idx.numel(), device=idx.device)[:max_positions]]
+
+        labels = shift_labels[idx]
+        logits = (shift_hidden_states[idx] @ lm_head_weight.t()).float()
+        correct = logits.argmax(dim=-1) == labels
+        logp = torch.log_softmax(logits / temperature, dim=-1)
+        entropy = -(logp.exp() * logp).sum(dim=-1)
+
+        with torch.no_grad():  # mechanism diagnostics on coordinate slots (what the hybrid ambiguity rule reads)
+            is_coord = (labels >= self.config.coord_start_token_id) & (labels <= self.config.coord_end_token_id)
+            top1 = torch.softmax(logits, dim=-1).max(dim=-1)[0]
+            self.cf_stats = {
+                'mtp_acc': correct.float().mean().item(),
+                'mtp_coord_acc': correct[is_coord].float().mean().item() if is_coord.any() else float('nan'),
+                'mtp_coord_top1': top1[is_coord].mean().item() if is_coord.any() else float('nan'),
+                'mtp_coord_low_conf': (top1[is_coord] < 0.9).float().mean().item() if is_coord.any() else float('nan'),
+            }
+        if not correct.any():
+            return entropy.sum() * 0.0
+        return entropy[correct].mean()
 
     def get_sub_sample_lengths(self, input_ids):
         # for compatibility with packing
@@ -309,6 +360,13 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
                 f"hidden_states_has_inf={bool(torch.isinf(shift_hidden_states).any().item())}"
             )
         logits = None
+
+        cf_beta = getattr(self.config, 'certainty_forcing_beta', 0.0)
+        if cf_beta > 0 and self.training:
+            cf_loss = self.certainty_forcing_loss(
+                shift_hidden_states, shift_labels, position_ids, sub_sample_lengths, lm_head_weight
+            )
+            loss = loss + cf_beta * cf_loss
 
         if ignore_flag:
             loss = loss * 0.0

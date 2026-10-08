@@ -1,3 +1,5 @@
+import re
+
 import torch
 
 
@@ -39,7 +41,8 @@ def prepare_generation_inputs(processor_inputs, device):
     }
 
 
-def build_generate_kwargs(prepared_inputs, processor, generation_mode, max_new_tokens, include_eos_token=False):
+def build_generate_kwargs(prepared_inputs, processor, generation_mode, max_new_tokens, include_eos_token=False,
+                          verbose=False, constrained_block=False, temperature=0.7):
     tokenizer = getattr(processor, "tokenizer", None)
     if tokenizer is None and hasattr(processor, "batch_decode"):
         tokenizer = processor
@@ -52,10 +55,12 @@ def build_generate_kwargs(prepared_inputs, processor, generation_mode, max_new_t
         max_new_tokens=max_new_tokens,
         use_cache=True,
         do_sample=True,
-        temperature=0.7,
+        temperature=temperature,
         top_p=0.9,
         repetition_penalty=1.1,
         generation_mode=generation_mode,
+        verbose=verbose,
+        constrained_block=constrained_block,
     )
 
     if prepared_inputs["image_grid_hws"] is not None:
@@ -110,3 +115,28 @@ def decode_generation_output(raw_output, input_ids, processor):
         return decoded[0] if isinstance(decoded, list) else decoded
 
     return str(raw_output)
+
+
+def parse_statistic_info(raw_output):
+    """Return the numeric fields of the 'Statistic Info' line emitted by generate(verbose=True), or None."""
+    if not (isinstance(raw_output, tuple) and len(raw_output) == 3 and isinstance(raw_output[2], str)):
+        return None
+    stats = {}
+    for key, value in re.findall(r"([\w\(\)]+)=([^;]+)", raw_output[2]):
+        try:
+            stats[key.strip()] = float(value)
+        except ValueError:
+            pass
+    return stats
+
+
+def load_model(model_path, dtype="bfloat16", lora_path=None):
+    """Load LocateAnything through remote code, optionally in fp16 (pre-Ampere GPUs) and with a LoRA adapter."""
+    from transformers import AutoModel
+
+    model = AutoModel.from_pretrained(model_path, trust_remote_code=True, torch_dtype=getattr(torch, dtype))
+    if lora_path:
+        from peft import PeftModel
+
+        model.language_model = PeftModel.from_pretrained(model.language_model, lora_path).merge_and_unload()
+    return model

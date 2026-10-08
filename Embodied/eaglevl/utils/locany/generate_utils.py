@@ -174,10 +174,19 @@ def sample_tokens(
     fallback_box = torch.zeros(1, dtype=x0.dtype, device=x0.device)
 
     for b in range(batch_size):
-        decoded_box = decode_bbox_avg(
-            logits[b], probs[b], token_ids, keep_k=generate_kwargs.get('keep_k_avg', 4),
-            generation_mode=generate_kwargs.get('generation_mode', 'hybrid'),
-        )
+        decoded_box = None
+        if generate_kwargs.get('constrained_block', False):
+            decoded_box = constrained_box_decode(
+                probs[b], token_ids, keep_k=generate_kwargs.get('keep_k_avg', 4),
+                generation_mode=generate_kwargs.get('generation_mode', 'hybrid'),
+                stats=generate_kwargs.get('block_stats'),
+            )
+        if decoded_box is None:
+            decoded_box = decode_bbox_avg(
+                logits[b], probs[b], token_ids, keep_k=generate_kwargs.get('keep_k_avg', 4),
+                generation_mode=generate_kwargs.get('generation_mode', 'hybrid'),
+                stats=generate_kwargs.get('block_stats'),
+            )
         if decoded_box is not None:
             box_avg.append(decoded_box)
         else:
@@ -281,6 +290,7 @@ def decode_bbox_avg(
     start_thresh=0.7,
     end_thresh=0.2,
     generation_mode: str = 'hybrid',
+    stats=None,
 ):
     """
     Decode bounding box coordinates using top-k weighted average.
@@ -333,24 +343,13 @@ def decode_bbox_avg(
         return None # not a box, exit...
 
     first_valid_idx = mask.long().argmax(dim=-1, keepdim=True) # [4, 1]
-    # Extract highest-probability valid_probs[0] and corresponding valid_ids[0]
-    first_valid_probs = pos_probs.gather(-1, first_valid_idx).squeeze(-1) # [4]
     first_valid_ids = pos_ids.gather(-1, first_valid_idx).squeeze(-1) # [4]
+    _record_coord_stats(stats, probs[1:5])
     if generation_mode == 'hybrid':
-        valid_counts = mask.sum(dim=-1) # [4]
-        # Compute max/min of valid ids: fill invalid positions with extreme values to avoid interfering with max/min
-        LARGE_NUM, SMALL_NUM = 999999, -999999
-        valid_ids_for_max = torch.where(mask, pos_ids, torch.tensor(SMALL_NUM, device=device))
-        valid_ids_for_min = torch.where(mask, pos_ids, torch.tensor(LARGE_NUM, device=device))
-
-        valid_max = valid_ids_for_max.max(dim=-1)[0]
-        valid_min = valid_ids_for_min.min(dim=-1)[0]
-
-        is_abnormal = (first_valid_probs < 0.9) & (valid_counts > 1) & ((valid_max - valid_min) > 60)
-        # is_abnormal = (first_valid_probs < 0.7) & (valid_counts > 1) & ((valid_max - valid_min) > 80)
-
         # Normal positions take top-1 (first_valid_ids); abnormal positions are replaced with 0
+        is_abnormal = coord_is_abnormal(pos_probs, pos_ids, token_ids)
         final_coords = torch.where(is_abnormal, torch.tensor(0, device=pos_ids.device), first_valid_ids)
+        _record_ambiguity(stats, is_abnormal)
     elif generation_mode == 'fast':
         final_coords = first_valid_ids
 
@@ -359,7 +358,106 @@ def decode_bbox_avg(
     end_t = torch.tensor([box_end_token_id], dtype=final_coords.dtype, device=device)
 
     return torch.cat([start_t, final_coords, end_t])
-    
+
+
+def coord_is_abnormal(pos_probs, pos_ids, token_ids):
+    """Hybrid-mode spatial-ambiguity rule (unchanged from the release; shared by the constrained decoder).
+
+    Args:
+        pos_probs, pos_ids: full-vocabulary top-k probabilities / ids at each coordinate slot, shape [n, k]
+    Returns:
+        bool tensor [n]: top-1 coordinate is unconfident AND the top-k coordinates are spatially spread out
+    """
+    mask = (pos_ids >= token_ids['coord_start_token_id']) & (pos_ids <= token_ids['coord_end_token_id'])
+    first_valid_idx = mask.long().argmax(dim=-1, keepdim=True)
+    first_valid_probs = pos_probs.gather(-1, first_valid_idx).squeeze(-1)
+    valid_counts = mask.sum(dim=-1)
+    # Compute max/min of valid ids: fill invalid positions with extreme values to avoid interfering with max/min
+    LARGE_NUM, SMALL_NUM = 999999, -999999
+    valid_max = torch.where(mask, pos_ids, torch.tensor(SMALL_NUM, device=pos_ids.device)).max(dim=-1)[0]
+    valid_min = torch.where(mask, pos_ids, torch.tensor(LARGE_NUM, device=pos_ids.device)).min(dim=-1)[0]
+
+    return (first_valid_probs < 0.9) & (valid_counts > 1) & ((valid_max - valid_min) > 60)
+    # return (first_valid_probs < 0.7) & (valid_counts > 1) & ((valid_max - valid_min) > 80)
+
+
+def _record_coord_stats(stats, coord_probs):
+    """Accumulate MTP coordinate confidence statistics (mechanism check for the fallback experiments)."""
+    if stats is None:
+        return
+    top1 = coord_probs.max(dim=-1)[0].float()
+    entropy = -(coord_probs.float() * torch.log(coord_probs.float().clamp_min(1e-12))).sum(dim=-1)
+    stats['num_coords'] = stats.get('num_coords', 0) + top1.numel()
+    stats['sum_coord_top1'] = stats.get('sum_coord_top1', 0.0) + top1.sum().item()
+    stats['sum_coord_entropy'] = stats.get('sum_coord_entropy', 0.0) + entropy.sum().item()
+    stats['num_coords_low_conf'] = stats.get('num_coords_low_conf', 0) + (top1 < 0.9).sum().item()
+
+
+def _record_ambiguity(stats, is_abnormal):
+    if stats is not None and is_abnormal.any():
+        stats['ambiguous_block'] = True
+
+
+def constrained_box_decode(
+    probs,
+    token_ids: Dict[str, int],
+    keep_k=4,
+    start_thresh=0.6,
+    generation_mode: str = 'hybrid',
+    stats=None,
+):
+    """Grammar-constrained decoding of one MTP box block.
+
+    DINGO (Suresh et al., "Constrained Inference for Diffusion LLMs", NeurIPS 2025) returns the most probable
+    block inside a regular language. A box block is a tiny regular language with three members:
+        <box> c c c c </box>            (box)
+        <box> c c </box> <null> <null>  (point)
+        <box> none </box> <null> x3     (empty)
+    Since MTP positions are factorized given the context, the constrained MAP is the template whose
+    per-position best log-probs sum highest, with coordinates arg-maxed over the coordinate vocabulary only.
+    This removes malformed frames by construction. Spatial ambiguity is still checked with the unchanged
+    hybrid rule, so genuinely uncertain coordinates still fall back to NTP.
+
+    Returns None when the block does not start with <box>, leaving the original decoding path in charge.
+    """
+    box_start = token_ids['box_start_token_id']
+    box_end = token_ids['box_end_token_id']
+    null = token_ids['null_token_id']
+    none = token_ids['none_token_id']
+    c0, c1 = token_ids['coord_start_token_id'], token_ids['coord_end_token_id']
+
+    if probs[0, box_start] < start_thresh:
+        return None
+
+    logp = torch.log(probs.float().clamp_min(1e-12))
+    coord_logp, coord_ids = logp[:, c0:c1 + 1].max(dim=-1)  # best coordinate per slot
+    coord_ids = coord_ids + c0
+
+    scores = {
+        'box': coord_logp[1:5].sum() + logp[5, box_end],
+        'point': coord_logp[1:3].sum() + logp[3, box_end] + logp[4, null] + logp[5, null],
+        'empty': logp[1, none] + logp[2, box_end] + logp[3:6, null].sum(),
+    }
+    kind = max(scores, key=lambda k: scores[k].item())
+    device = probs.device
+
+    if kind == 'empty':
+        return torch.tensor([box_start, none, box_end, null, null, null], dtype=torch.long, device=device)
+
+    n = 4 if kind == 'box' else 2
+    final_coords = coord_ids[1:1 + n]
+    _record_coord_stats(stats, probs[1:1 + n])
+    if generation_mode == 'hybrid':
+        pos_probs, pos_ids = torch.topk(probs[1:1 + n], k=keep_k, dim=-1)
+        is_abnormal = coord_is_abnormal(pos_probs, pos_ids, token_ids)
+        final_coords = torch.where(is_abnormal, torch.zeros_like(final_coords), final_coords)
+        _record_ambiguity(stats, is_abnormal)
+
+    head = torch.tensor([box_start], dtype=torch.long, device=device)
+    if kind == 'box':
+        return torch.cat([head, final_coords, torch.tensor([box_end], dtype=torch.long, device=device)])
+    return torch.cat([head, final_coords, torch.tensor([box_end, null, null], dtype=torch.long, device=device)])
+
 
 def decode_ref(
     logits,

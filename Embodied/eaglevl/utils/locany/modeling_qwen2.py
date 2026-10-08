@@ -1319,6 +1319,7 @@ class Qwen2Model(Qwen2PreTrainedModel):
                 x0_len_list=x0_len,
                 position_ids=position_ids,
                 causal_attn=self.causal_attn,
+                dtype=inputs_embeds.dtype,
             )
             return block_mask
 

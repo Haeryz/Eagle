@@ -359,6 +359,9 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
 
         use_mtp = generation_mode in ('fast', 'hybrid')
         switch_to_ar_count = 0
+        # Per-block fallback accounting: why each MTP box block was rejected (format vs spatial ambiguity)
+        block_stats = {'num_box_blocks': 0, 'switch_format': 0, 'switch_ambig': 0}
+        generate_kwargs['block_stats'] = block_stats
 
         # Pre-allocate mask tokens and position ids
         default_mask_token_id = self.token_ids['default_mask_token_id']
@@ -415,6 +418,7 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
         def _sample_token_in_mtp(generated, outputs):
             """Sample tokens using MTP (Multi-Token Prediction) mode."""
             next_token_logits = outputs.logits[:, -n_future_tokens:, :]
+            block_stats['ambiguous_block'] = False
             probs, confidence, x0, box_avg = sample_tokens(
                 next_token_logits, generated, self.token_ids, keep_k=5, **generate_kwargs
             )
@@ -424,6 +428,10 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
 
             out_pattern = handle_pattern(new_tokens, self.token_ids, generation_mode)
             out_type = out_pattern['type']
+            if out_type in ('coord_box', 'point_box', 'empty_box', 'error_box'):
+                block_stats['num_box_blocks'] += 1
+            if out_type == 'error_box':
+                block_stats['switch_ambig' if block_stats['ambiguous_block'] else 'switch_format'] += 1
             out_token = torch.tensor(out_pattern['tokens'], dtype=x0.dtype, device=x0.device)
 
             return out_type, out_token
@@ -531,7 +539,14 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
                     f"num_boxes={num_boxes}; " + \
                     f"bps={(num_boxes / total_time):.4f}; " + \
                     f"prefill_time={(prefill_time):.4f}; " + \
-                    f"switch_to_ar={switch_to_ar_count}\n"
+                    f"switch_to_ar={switch_to_ar_count}; " + \
+                    f"switch_format={block_stats['switch_format']}; " + \
+                    f"switch_ambig={block_stats['switch_ambig']}; " + \
+                    f"num_box_blocks={block_stats['num_box_blocks']}; " + \
+                    f"num_coords={block_stats.get('num_coords', 0)}; " + \
+                    f"sum_coord_top1={block_stats.get('sum_coord_top1', 0.0):.4f}; " + \
+                    f"sum_coord_entropy={block_stats.get('sum_coord_entropy', 0.0):.4f}; " + \
+                    f"num_coords_low_conf={block_stats.get('num_coords_low_conf', 0)}\n"
             print(out_info)
 
             return response[0], sampling_history, out_info

@@ -139,7 +139,8 @@ def create_block_diff_mask_by_pe_4d(
     block_size: int, 
     x0_len_list: torch.Tensor, 
     position_ids: torch.Tensor, 
-    causal_attn: bool = False
+    causal_attn: bool = False,
+    dtype: torch.dtype = torch.bfloat16,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Generates a 4D attention mask for block-difference attention patterns.
 
@@ -192,7 +193,7 @@ def create_block_diff_mask_by_pe_4d(
     block_prefix = (~x0_flag_q & x0_flag_kv) & (kv_idx < prefix_len)
 
     final_mask = (block_causal | block_mutual | block_prefix)
-    customized_mask = torch.full_like(final_mask, float('-inf'), dtype=torch.bfloat16)
+    customized_mask = torch.full_like(final_mask, float('-inf'), dtype=dtype)
     customized_mask.masked_fill_(final_mask, 0.0)
     
     return customized_mask.unsqueeze(1).to(device=device), final_mask.unsqueeze(1).to(device=device)

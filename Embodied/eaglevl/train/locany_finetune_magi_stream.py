@@ -63,6 +63,7 @@ from transformers import (AutoConfig, AutoModelForCausalLM, AutoTokenizer,
 from transformers.utils.logging import (enable_default_handler,
                                         enable_explicit_format, set_verbosity)
 from transformers import TrainerCallback
+from transformers.utils import is_flash_attn_2_available
 from eaglevl.train.tools import (SaveCheckpointCallback, MemoryLoggerCallback, 
                                   MilestoneCheckpointCallback, get_last_checkpoint_guard, 
                                   load_config, process_multimodal_sample)
@@ -1164,7 +1165,24 @@ class StreamPackingMTPTrainer(Trainer):
                                f"Total samples (this run) = {self._total_samples}, "
                                f"Avg samples/step = {avg_samples_per_step:.2f}")
         
-        return super().training_step(model, inputs, num_items_in_batch)
+        loss = super().training_step(model, inputs, num_items_in_batch)
+
+        # Accumulate certainty-forcing diagnostics (MTP accuracy / coordinate confidence) until the next log
+        cf_stats = getattr(self.accelerator.unwrap_model(model), 'cf_stats', None)
+        if cf_stats:
+            acc = getattr(self, '_cf_accum', {})
+            for k, v in cf_stats.items():
+                if v == v:  # skip NaN
+                    total, count = acc.get(k, (0.0, 0))
+                    acc[k] = (total + v, count + 1)
+            self._cf_accum = acc
+        return loss
+
+    def log(self, logs, *args, **kwargs):
+        for k, (total, count) in getattr(self, '_cf_accum', {}).items():
+            logs[k] = round(total / max(count, 1), 4)
+        self._cf_accum = {}
+        super().log(logs, *args, **kwargs)
     
     def get_train_dataloader(self):
         if self.train_dataset is None:
@@ -1334,9 +1352,11 @@ def main():
         config._attn_implementation_autoset = False
         config.text_config._attn_implementation = model_args.attn_implementation
         config.text_config._attn_implementation_autoset = False
-        config.vision_config._attn_implementation = 'flash_attention_2'
+        vision_attn = 'flash_attention_2' if is_flash_attn_2_available() else 'sdpa'
+        config.vision_config._attn_implementation = vision_attn
         config.vision_config._attn_implementation_autoset = False
-        logger.info(f'Text attn: {model_args.attn_implementation}, Vision attn: flash_attention_2')
+        config.certainty_forcing_beta = model_args.certainty_forcing_beta
+        logger.info(f'Text attn: {model_args.attn_implementation}, Vision attn: {vision_attn}')
 
         config.image_token_index = image_token_index
         config.text_config.block_size = int(model_args.block_size)
@@ -1353,7 +1373,7 @@ def main():
 
         model = LocateAnythingForConditionalGeneration.from_pretrained(
             model_args.model_name_or_path, 
-            torch_dtype=torch.bfloat16, config=config, 
+            torch_dtype=torch.float16 if training_args.fp16 else torch.bfloat16, config=config, 
             attn_implementation=model_args.attn_implementation
         )
             
@@ -1483,6 +1503,12 @@ def main():
     if model_args.freeze_mlp:
         _freeze_params(model.mlp1)
 
+    if training_args.fp16:
+        # fp16 AMP keeps master weights of trainable params in fp32 (GradScaler cannot unscale fp16 grads)
+        for param in model.parameters():
+            if param.requires_grad:
+                param.data = param.data.float()
+
     if model_args.unfreeze_vit_layers != 0:
         layers = model.vision_model.encoder.layers[model_args.unfreeze_vit_layers:]
         for k, v in layers.named_parameters():
@@ -1565,7 +1591,11 @@ def main():
                 logger.warning(f"Rank {rank}: No dataloader state found at {dataloader_state_path}")
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        trainer.save_model()
+        if model_args.save_lora_adapter_only:
+            if get_rank() == 0:
+                model.language_model.save_pretrained(osp.join(training_args.output_dir, 'llm_lora'))
+        else:
+            trainer.save_model()
 
         if get_rank() == 0:
             output_dir = training_args.output_dir

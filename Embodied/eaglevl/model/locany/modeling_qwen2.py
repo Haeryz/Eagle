@@ -1190,6 +1190,7 @@ class Qwen2Model(Qwen2PreTrainedModel):
                 position_ids=position_ids,
                 data_index=_build_data_index(),
                 causal_attn=self.causal_attn,
+                dtype=inputs_embeds.dtype,
             )
         
         # Non-packing mode
@@ -1200,7 +1201,8 @@ class Qwen2Model(Qwen2PreTrainedModel):
                 block_size=self.block_size, 
                 x0_len_list=x0_len, 
                 position_ids=position_ids, 
-                causal_attn=self.causal_attn
+                causal_attn=self.causal_attn,
+                dtype=inputs_embeds.dtype,
             )
             return attention_mask
         
@@ -1246,7 +1248,8 @@ class Qwen2Model(Qwen2PreTrainedModel):
             block_size=self.block_size, 
             x0_len_list=x0_len, 
             position_ids=position_ids, 
-            causal_attn=self.causal_attn
+            causal_attn=self.causal_attn,
+            dtype=inputs_embeds.dtype,
         )
         return attention_mask
 

@@ -108,6 +108,16 @@ class ModelArguments:
         default=False,
         metadata={'help': 'causal attention or not. default to False.'},
     )
+    save_lora_adapter_only: bool = field(
+        default=False,
+        metadata={'help': 'With --use_llm_lora and everything else frozen, save only the PEFT adapter of the LLM '
+                          '(to <output_dir>/llm_lora) instead of the full model.'},
+    )
+    certainty_forcing_beta: float = field(
+        default=0.0,
+        metadata={'help': 'Weight of the dParallel certainty-forcing entropy term on correctly predicted MTP '
+                          'coordinate tokens (dParallel, ICLR 2026, uses 2.0). 0 disables it.'},
+    )
     attn_implementation: Optional[str] = field(
         default='magi',
         metadata={'help': 'attention implementation: magi, flash_attention_2, sdpa, eager.'},
