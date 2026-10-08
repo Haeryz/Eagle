@@ -147,7 +147,7 @@ HF checkpoint's `generate_utils.py`).
 | E1 | E0 + M1 constrained blocks | queued |
 | E2a | Self-distilled LoRA, β = 0 | done (Hybrid, 6/6) |
 | E2b | Self-distilled LoRA + certainty forcing, β = 1 | done (Hybrid, 6/6) |
-| E3 | E2b + M1 | queued |
+| E3 | E2b + M1 | done (Hybrid, 6/6) |
 | E4 | E2b + GRPO (accuracy + parallelism reward) | queued |
 
 Results go in section 5. Every experiment is reported as hypothesis → method → code change → result against E0.
@@ -225,6 +225,28 @@ share of coordinates below 0.9 fell from 97% to 72% (W&B run `train-E2b`).
   below is not bypassed.
 - **Format fallbacks grow slightly on LVIS** (0.75% → 1.34%). Sharper predictions commit harder to malformed frames
   on long category lists; this is what M1 (E3) targets.
+
+### E3: E2b + M1 grammar-constrained block decoding, Hybrid mode
+
+**Hypothesis**: the format fallbacks that remain, and that grow with sharpening (LVIS 0.75% → 1.34%), are removed by
+decoding each box block as the most probable *legal* frame (DINGO, NeurIPS 2025). Ambiguity fallbacks are
+unaffected.
+
+| Subset | F1 E0 / E2b / **E3** (universal) | Δ F1 E3 − E0 | Fallback E0 / E2b / **E3** | Δ E3 − E0 | Format fallback E2b → E3 |
+|---|---|---|---|---|---|
+| RefCOCOg val | 74.12 / 74.40 / **74.42** | +0.30 | 19.0 / 22.4 / **22.4** | +3.4 | 0.00 → 0.00 |
+| RefCOCOg test | 78.96 / 80.04 / **80.06** | +1.10 | 13.8 / 18.0 / **18.0** | +4.2 | 0.00 → 0.00 |
+| COCO | 63.41 / 64.22 / **64.67** | +1.26 | 18.5 / 15.9 / **15.8** | −2.7 | 0.69 → 0.62 |
+| LVIS | 51.06 / 52.56 / **53.07** | +2.01 | 22.7 / 21.7 / **21.2** | −1.4 | **1.34 → 0.76** |
+| **Dense200** | 59.52 / 64.37 / **65.33** | **+5.81** | 26.1 / 20.1 / **19.9** | **−6.2** | 0.08 → 0.06 |
+| SROIE | 39.17 / 41.28 / **41.28** | +2.10 | 6.4 / 5.8 / **5.7** | −0.7 | 0.00 → 0.00 |
+
+- **Mechanism check**: format fallbacks fall where they existed (LVIS −44%, COCO −10%), and ambiguity fallbacks are
+  unchanged. This is as designed.
+- **The remaining format triggers** come from blocks with P(`<box>`) < 0.6, which M1 deliberately leaves to the
+  original decoder (e.g. a block emitting the text token `None` instead of the `none` empty-box token).
+- Under the official FastEvaluate metric, E3 equals E2b on COCO/LVIS (below), so M1's F1 effect is metric-dependent.
+  Its fallback effect is not.
 
 ### COCO / LVIS with the paper's official pipeline (FastEvaluate)
 
