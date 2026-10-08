@@ -130,8 +130,8 @@ HF checkpoint's `generate_utils.py`).
   **per-sample seed**, so compared runs see the same random stream for the same input.
 - **Metric**: F1 averaged over IoU 0.50:0.95 (`evaluation/metrics/other_metric.py`), applied uniformly to all six
   sets.
-  - COCO/LVIS are therefore **not** directly comparable to the paper's COCO/LVIS numbers, which come from the
-    FastEvaluate pipeline. Only deltas against our own baseline are meaningful for those two.
+  - COCO/LVIS are additionally re-scored with the paper's official FastEvaluate pipeline (see section 5), which is
+    the version comparable to the paper.
   - RefCOCOg, Dense200 and SROIE use the same metric as the paper.
 - **Fallback rate**: switches to NTP divided by MTP box blocks, split by reason.
 - **Comparisons**:
@@ -225,6 +225,29 @@ share of coordinates below 0.9 fell from 97% to 72% (W&B run `train-E2b`).
   below is not bypassed.
 - **Format fallbacks grow slightly on LVIS** (0.75% → 1.34%). Sharper predictions commit harder to malformed frames
   on long category lists; this is what M1 (E3) targets.
+
+### COCO / LVIS with the paper's official pipeline (FastEvaluate)
+
+The universal metric above is not the one the paper uses for COCO/LVIS. The saved predictions were therefore
+re-scored with the repo's own `convert_coco_lvis_to_standard_format.py --positive_only` + `fastevaluate`
+(C++ extension in `evaluation/fastevaluate`), unchanged, with the GT JSON restricted to the 500 subset images
+(`evaluation/tools/fasteval_subset.py`). No re-inference was needed.
+
+| | COCO F1@mean | Δ vs E0 | COCO F1@0.5 | COCO F1@0.95 | LVIS F1@mean | Δ vs E0 | LVIS F1@0.5 | LVIS F1@0.95 |
+|---|---|---|---|---|---|---|---|---|
+| Paper Hybrid (full val) | 54.7 | | 70.1 | 19.3 | 50.7 | | 62.3 | 31.1 |
+| **E0 reproduced** | **55.31** | — | 72.41 | 23.49 | **53.18** | — | 70.34 | 39.54 |
+| E2a | 56.85 | **+1.54** | 74.02 | 24.35 | 53.88 | **+0.70** | 71.65 | 40.67 |
+| E2b | 56.55 | +1.24 | 73.42 | **24.90** | 53.31 | +0.13 | 71.31 | **42.69** |
+| E3 | 56.55 | +1.24 | 73.63 | 24.80 | 53.31 | +0.13 | 71.16 | 42.64 |
+
+- **The reproduction matches the paper** on COCO (55.3 vs 54.7). The LVIS subset of 500 images scores higher than
+  the full 19.6k-image long-tail val (53.2 vs 50.7), so treat LVIS absolute numbers as approximate.
+- **Gains hold under the official metric** but are smaller on LVIS than the universal metric suggested.
+- **The largest effect is at strict IoU**: certainty forcing raises F1@0.95 by +3.2 (LVIS) and +1.4 (COCO), which is
+  consistent with sharper coordinate distributions giving more precise edges.
+- **M1 adds nothing over E2b** on COCO/LVIS under this metric; its +0.5 under the universal metric does not carry
+  over.
 
 **Diagnosis of the new RefCOCOg fallbacks** (`evaluation/tools/diagnose_ambiguity.py`, the 41 RefCOCOg-val rows
 where E2a newly falls back; fp32 CPU replay logging the top-k coordinates at every trigger):
