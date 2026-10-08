@@ -146,7 +146,7 @@ HF checkpoint's `generate_utils.py`).
 | E0 | Released model, Hybrid (and Fast) | Hybrid done; Fast queued |
 | E1 | E0 + M1 constrained blocks | queued |
 | E2a | Self-distilled LoRA, β = 0 | done (Hybrid, 6/6) |
-| E2b | Self-distilled LoRA + certainty forcing, β = 1 | trained; eval queued |
+| E2b | Self-distilled LoRA + certainty forcing, β = 1 | done (Hybrid, 6/6) |
 | E3 | E2b + M1 | queued |
 | E4 | E2b + GRPO (accuracy + parallelism reward) | queued |
 
@@ -199,6 +199,32 @@ makes per-coordinate targets unimodal (Zhou et al., ICLR 2020), so fewer coordin
   data.
 - **Mechanism check**: coordinate entropy drops 37–60% everywhere, so the targeted signal (multimodal coordinate
   marginals) did move.
+
+### E2b: self-distillation + dParallel certainty forcing (LoRA, β = 1) vs E0 and E2a, Hybrid mode
+
+**Hypothesis**: on top of E2a, minimizing the entropy of already-correct MTP predictions (dParallel, ICLR 2026)
+pushes coordinate confidence up, so fewer coordinates sit in the low-confidence region the fallback rule inspects.
+**Training-side mechanism check**: on training batches, mean MTP-coordinate top-1 rose from 0.33 to 0.69, and the
+share of coordinates below 0.9 fell from 97% to 72% (W&B run `train-E2b`).
+
+| Subset | F1 E0 / E2a / **E2b** | Δ F1 (E2b − E0) | Fallback per image E0 / E2a / **E2b** | Δ (E2b − E0) | Pooled E0 / E2b | Format fallback E0 / E2b |
+|---|---|---|---|---|---|---|
+| RefCOCOg val | 74.12 / 74.66 / **74.40** | +0.28 | 19.0 / 22.2 / **22.4** | +3.4 | 19.0 / 22.4 | 0.00 / 0.00 |
+| RefCOCOg test | 78.96 / 80.12 / **80.04** | +1.08 | 13.8 / 17.0 / **18.0** | +4.2 | 13.8 / 18.0 | 0.00 / 0.00 |
+| COCO | 63.41 / 64.21 / **64.22** | +0.82 | 18.5 / 16.3 / **15.9** | −2.6 | 19.4 / 21.7 | 0.80 / 0.69 |
+| LVIS | 51.06 / 52.64 / **52.56** | +1.50 | 22.7 / 22.8 / **21.7** | −1.0 | 14.2 / 25.2 | 0.75 / 1.34 |
+| **Dense200** | 59.52 / 64.62 / **64.37** | **+4.85** | 26.1 / 21.3 / **20.1** | **−6.0** | 26.1 / 20.6 | 0.04 / 0.08 |
+| SROIE | 39.17 / 41.31 / **41.28** | +2.11 | 6.4 / 5.5 / **5.8** | −0.6 | 8.5 / 8.1 | 0.00 / 0.00 |
+
+- **F1 improves on all six subsets.** Certainty forcing keeps distillation's gains (within ±0.3 of E2a).
+- **Fallback falls on 4 of 6 subsets** and is largest where the paper's limitation bites: Dense200 −6.0 points per
+  image (a 23% relative cut) and −5.5 pooled. Certainty forcing adds −1.3 (Dense200), −0.4 (COCO) and −1.1 (LVIS)
+  over distillation alone.
+- **RefCOCOg fallback rises** (+3.4 / +4.2). Out of domain (no referring prompts in the distillation data),
+  certainty forcing barely sharpens (top-1 0.45 → 0.48, far below the rule's 0.9 gate), so the misfiring described
+  below is not bypassed.
+- **Format fallbacks grow slightly on LVIS** (0.75% → 1.34%). Sharper predictions commit harder to malformed frames
+  on long category lists; this is what M1 (E3) targets.
 
 **Diagnosis of the new RefCOCOg fallbacks** (`evaluation/tools/diagnose_ambiguity.py`, the 41 RefCOCOg-val rows
 where E2a newly falls back; fp32 CPU replay logging the top-k coordinates at every trigger):
