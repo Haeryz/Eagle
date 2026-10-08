@@ -188,7 +188,7 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
         return (is_mtp[:-1] & shift_labels.ne(IGNORE_INDEX)).nonzero().squeeze(1)
 
     def certainty_forcing_loss(self, shift_hidden_states, shift_labels, position_ids, sub_sample_lengths,
-                               lm_head_weight, temperature=0.5, max_positions=512):
+                               lm_head_weight, temperature=0.5, max_positions=256):
         """Certainty-forcing term of dParallel (Chen et al., ICLR 2026, Eq. 8), ported from the authors' reference
         `DLMTrainer.compute_loss` (github.com/czg1225/dParallel, Dream/dream_train.py): mean entropy of the
         temperature-scaled (T=0.5) prediction over the masked positions the model already predicts correctly.

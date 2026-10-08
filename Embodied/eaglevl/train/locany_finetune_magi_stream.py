@@ -1597,7 +1597,9 @@ def main():
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         if model_args.save_lora_adapter_only:
             if get_rank() == 0:
-                model.language_model.save_pretrained(osp.join(training_args.output_dir, 'llm_lora'))
+                # embeddings/lm_head are frozen; without this PEFT also saves them (~1.2 GB) because the vocab is extended
+                model.language_model.save_pretrained(osp.join(training_args.output_dir, 'llm_lora'),
+                                                     save_embedding_layers=False)
         else:
             trainer.save_model()
 

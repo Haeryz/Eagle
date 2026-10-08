@@ -27,7 +27,7 @@ PORT=${PORT:-29500}
 mkdir -p "$OUTPUT_DIR"
 script_name=$(basename "${BASH_SOURCE[0]}")
 
-python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port="$PORT" \
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True LAUNCHER=pytorch python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port="$PORT" \
   eaglevl/train/locany_finetune_magi_stream.py \
   --model_name_or_path "$MODEL_PATH" \
   --max_steps "$MAX_STEPS" \
