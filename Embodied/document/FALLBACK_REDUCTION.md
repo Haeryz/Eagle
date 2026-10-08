@@ -291,7 +291,30 @@ the mass-blind heuristic with a principled, mass-aware criterion such as EB-Samp
 (Ben-Hamu et al., NeurIPS 2025). The latter must be applied to the baseline as well and validated as an error
 detector (it should fire on blocks whose Fast-mode box is wrong), not tuned to lower the fallback count.
 
-## 6. Problems encountered and how they were resolved
+## 7. Next steps (next week)
+
+1. **Evaluation scale.** COCO, LVIS and RefCOCOg val/test were evaluated on fixed, seeded 500-sample subsets
+   (Dense200 and SROIE in full), because of single-GPU time (~1 h 50 min per configuration on the subsets vs.
+   ~9–10 h on the full sets).
+   - Run the baseline and the final best model on the **full** COCO and RefCOCOg val/test sets (~2.5 h per model),
+     and on full LVIS val if a larger GPU is available (~6.5 h per model on the 2080 Ti).
+   - Report **paired bootstrap 95% confidence intervals** for every Δ (resampling images; same images across
+     models), so each improvement is stated with its significance.
+2. **Fix the reliability check itself.** The diagnosis (section 5) shows the release rule's top-k spread test
+   ignores probability mass and misfires on sharpened, confident predictions.
+   - Evaluate a mass-aware criterion, EB-Sampler's entropy bound (Ben-Hamu et al., NeurIPS 2025), against the
+     release rule **as a wrong-box detector at an equal fallback budget**, using the per-block features logged in
+     the Fast-mode runs (`decode_stats['blocks']`).
+   - Apply it to the baseline as well, so any gain is not just threshold loosening.
+3. **Close the RefCOCOg gap.** RefCOCOg fallback rose because the distillation data contained only multi-category
+   detection prompts. Add self-distilled *referring* prompts (RefCOCO/+/g train splits, disjoint from the eval
+   images) to the distillation set, then re-check whether the out-of-domain sharpening issue disappears.
+4. **RL at scale (E4 follow-up).** E4 is bounded by one GPU (150 steps × 2 prompts × 8 rollouts). Scale the number
+   of prompts and steps, and add dense-scene prompts, where the fallback reward has the most signal.
+5. **Speed.** Report BPS on the paper's hardware (H100), since 2080 Ti throughput is only relative. Measure the
+   end-to-end speed-up from fewer fallbacks.
+
+## 8. Problems encountered and how they were resolved
 
 | # | Problem | Resolution |
 |---|---|---|
