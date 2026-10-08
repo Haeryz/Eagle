@@ -34,9 +34,15 @@ def f1_by_dataset(data):
 
 
 def decode_summary(data):
-    stats = [d["decode_stats"] for d in data if "decode_stats" in d]
+    stats = [dict(d["decode_stats"]) for d in data if "decode_stats" in d]
     if not stats:
         return {}
+    for s in stats:
+        # Runs made between commits 15a4cc1 and the counter fix lost num_box_blocks (decoding was unaffected).
+        # In hybrid mode every <box> is opened by an MTP step, so box blocks == num_boxes; verified to hold for
+        # all 2560 E0 samples. Use it to recover the denominator exactly.
+        if s.get("num_box_blocks", 0) == 0 and s.get("num_boxes", 0) > 0:
+            s["num_box_blocks"] = s["num_boxes"]
     tot = lambda k: sum(s.get(k, 0.0) for s in stats)
     blocks, coords = tot("num_box_blocks"), tot("num_coords")
     # Per-sample (macro) averages are the primary numbers: pooled ratios are dominated by the few samples that

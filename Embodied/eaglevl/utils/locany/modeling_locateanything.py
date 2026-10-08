@@ -448,6 +448,7 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
                         kinds.append('det')
                         logps.append(None)
                 trace.append((generated.size(1) - 1, kinds, logps))
+            if out_type in ('coord_box', 'point_box', 'empty_box', 'error_box'):
                 block_stats['num_box_blocks'] += 1
             if out_type == 'error_box':
                 block_stats['switch_ambig' if block_stats['ambiguous_block'] else 'switch_format'] += 1
