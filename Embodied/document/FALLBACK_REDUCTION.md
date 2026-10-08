@@ -291,6 +291,41 @@ the mass-blind heuristic with a principled, mass-aware criterion such as EB-Samp
 (Ben-Hamu et al., NeurIPS 2025). The latter must be applied to the baseline as well and validated as an error
 detector (it should fire on blocks whose Fast-mode box is wrong), not tuned to lower the fallback count.
 
+### Failure analysis (TIDE-style)
+
+`evaluation/tools/error_analysis.py` labels every predicted box (TIDE, Bolya et al., ECCV 2020, adapted to
+score-free set outputs) as correct / localization (right object, 0.1 ≤ IoU < 0.5) / duplicate / class confusion /
+background false positive, and every unmatched GT as missed. The numbers below exclude runaway samples (repetition
+loops that hit the token cap), which are counted separately because each adds hundreds of junk boxes.
+Qualitative panels (GT | E0 | E3, boxes coloured by error type; wins, regressions and fallback-heavy images per
+dataset) are produced by `evaluation/tools/visualize_cases.py` into `work_dirs/report_assets/`.
+
+| Set | Correct (% of preds) E0 → E2a / E2b / E3 | Background FP | Localization | Merged boxes* | Missed (% of GT) | Runaway samples |
+|---|---|---|---|---|---|---|
+| COCO | 58.4 → 65.7 / 64.5 / 65.2 | 26.6 → 20.5 / 21.6 / 21.0 | 13.7 → 12.5 / 12.7 / 12.6 | 2.7 → 2.7 / 2.6 / 2.6 | 37.1 → 36.7 / 36.3 / 36.3 | 1 → 0 / 0 / 0 |
+| LVIS | 56.4 → 68.0 / 67.9 / 68.3 | 25.3 → 11.6 / 11.0 / 10.7 | 12.8 → 13.4 / 13.8 / 13.8 | 3.4 → 3.8 / 4.1 / 4.3 | 66.0 → 64.1 / 65.2 / 65.1 | 2 → 1 / 0 / 0 |
+| Dense200 | 87.9 → 90.9 / 90.7 / 87.2 | 2.6 → 2.3 / 2.0 / 5.0 | 9.0 → 6.5 / 7.0 / 7.1 | 4.4 → 2.2 / 2.9 / 3.3 | 31.4 → 29.5 / 30.7 / 30.0 | 0 → 0 / 1 / 1 |
+| SROIE | 83.6 → 80.5 / 77.5 / 78.2 | 7.0 → 7.7 / 13.9 / 13.2 | 9.2 → 11.3 / 8.5 / 8.5 | 2.2 → 2.7 / 2.1 / 2.1 | 21.2 → 19.9 / 20.1 / 20.3 | 8 → 8 / 8 / 10 |
+
+\* Merged box: a localization error whose box contains the centres of ≥ 2 same-category GT boxes (adjacent
+instances fused into one box).
+
+**Failure modes, causes and planned fixes** (each fix targets the measured cause; citations per `CLAUDE.md`):
+
+| # | Failure | Evidence | Cause | Planned fix (reference) |
+|---|---|---|---|---|
+| F1 | **Merged boxes in regular grids** (e.g. parking lot: E0 F1 88 → E3 22, tall boxes spanning 2–4 cars) | Overall merges fall with distillation (Dense200 4.4% → 2.2%) but **rise again with certainty forcing** (→ 2.9% E2b, 3.3% E3; LVIS 3.8% → 4.3%) | Near-identical neighbours make the parallel block's coordinate marginals multimodal; entropy minimization commits to a fused box instead of staying uncertain and falling back | Contrastive denoising with *adjacent-instance* hard negatives (DN-DETR, CVPR 2022; DINO, ICLR 2023): feed jittered or neighbour-shifted boxes and train the block to snap to one instance. Restrict certainty forcing to blocks whose coordinates are already unimodal |
+| F2 | **Spurious text boxes on receipts** with certainty forcing | SROIE background FP 7.0% → 13.9% (E2b) | Sharpening raises confidence on low-evidence text regions; the distillation data has no documents | Precision-penalized RL reward (Perception-R1, NeurIPS 2025, FP/FN penalty; Rex-Omni, CVPR 2026, RL suppresses duplicate and hallucinated boxes). E4 uses an F1-based reward; add an explicit FP penalty and document prompts |
+| F3 | **Runaway repetition loops** (output repeats boxes until the 8192-token cap) | 1–10 samples per set in every model; none of the methods removes them | Exposure to its own repeated context; the repetition penalty (1.1) is not enough | Unlikelihood training on repeated boxes (Welleck et al., *Neural Text Generation with Unlikelihood Training*, ICLR 2020) |
+| F4 | **Under-recall on LVIS** | ~65% of LVIS GT missed in every model | Long category lists; the model stops early. LVIS GT is federated, so some misses are unannotated-category artifacts | Pix2Seq sequence augmentation (Chen et al., ICLR 2022): noise objects plus delayed end-of-sequence to raise recall |
+| F5 | **Fallback rule misfiring on confident predictions** | RefCOCOg fallback +3.4/+4.2 while E2b *Fast* (0% fallback) beats E0 *Hybrid* (74.78 vs 74.12) | The release rule's spread test ignores probability mass (diagnosis above) | Mass-aware criterion (EB-Sampler, NeurIPS 2025), validated as a wrong-box detector at equal fallback budget |
+
+**Faithfulness caveat.** Part of the background-FP reduction is the model learning the annotation convention rather
+than seeing better. On COCO, many of E0's "false positives" are real but unannotated objects (e.g. distant
+surfers; panel `COCO_win_1.png`). Distillation filters teacher outputs against GT, so it teaches the model to omit
+what annotators omit. This raises the metric, but it is not purely a perception gain. It should be stated in the
+report, and checked on an exhaustively annotated set before claiming robustness.
+
 ## 6. Next steps (next week)
 
 1. **Evaluation scale.** COCO, LVIS and RefCOCOg val/test were evaluated on fixed, seeded 500-sample subsets
@@ -311,7 +346,13 @@ detector (it should fire on blocks whose Fast-mode box is wrong), not tuned to l
    images) to the distillation set, then re-check whether the out-of-domain sharpening issue disappears.
 4. **RL at scale (E4 follow-up).** E4 is bounded by one GPU (150 steps × 2 prompts × 8 rollouts). Scale the number
    of prompts and steps, and add dense-scene prompts, where the fallback reward has the most signal.
-5. **Speed.** Report BPS on the paper's hardware (H100), since 2080 Ti throughput is only relative. Measure the
+5. **Fix the failure modes F1–F4** found by the failure analysis (section 5), one principled method per measured
+   cause, re-running the same error analysis to verify that the targeted error type moved:
+   - adjacent-instance contrastive denoising for merged boxes,
+   - a precision-penalized RL reward for spurious boxes,
+   - unlikelihood training for runaway loops,
+   - Pix2Seq sequence augmentation for under-recall.
+6. **Speed.** Report BPS on the paper's hardware (H100), since 2080 Ti throughput is only relative. Measure the
    end-to-end speed-up from fewer fallbacks.
 
 ## 7. Problems encountered and how they were resolved
