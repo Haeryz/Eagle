@@ -283,13 +283,52 @@ Example E2a trigger: `[990: 0.40, 988: 0.26, 998: 0.20, 852: 0.04]`, i.e. 86% of
 yet it fires. The release rule (top-1 < 0.9 ∧ >1 coordinate in the top-k ∧ max−min of top-k values > 60) is
 **probability-blind in its spread test**. After distillation sharpens a coordinate into a narrow peak, fewer
 neighbouring bins fill the top-4, so an improbable distant bin enters the top-k and trips the spread condition.
-The increase in fallbacks is therefore mostly the reliability check misfiring on *confident* predictions, not new
-ambiguity. Genuine two-object bimodality is 7 of 35 triggers.
+Genuine two-object bimodality is 7 of 35 triggers. *(Correction, after the equal-budget detector test below: these
+tail-candidate triggers still correlate with wrong boxes, so "misfiring" overstated it. The release rule is the best
+of the tested detectors on RefCOCOg.)*
 
-**Implication for the next step**: either push top-1 above the rule's 0.9 gate (certainty forcing, E2b), or replace
-the mass-blind heuristic with a principled, mass-aware criterion such as EB-Sampler's entropy bound
-(Ben-Hamu et al., NeurIPS 2025). The latter must be applied to the baseline as well and validated as an error
-detector (it should fire on blocks whose Fast-mode box is wrong), not tuned to lower the fallback count.
+**Implication tested below** ("Fallback criteria as wrong-box detectors"): replacing the rule with a mass-aware
+criterion is **not** supported by the evidence.
+
+### Fallback criteria as wrong-box detectors (equal budget)
+
+**Hypothesis (F5)**: a mass-aware criterion detects wrong MTP boxes better than the release rule's probability-blind
+spread test. **Test** (`evaluation/tools/criterion_analysis.py`): in the E2b Fast runs every MTP box block is accepted
+and its features are logged, so each block can be paired with its output box and labelled correct/wrong against GT.
+Each continuous criterion fires on exactly as many blocks as the release rule.
+
+| Set | Wrong blocks | Release rule: precision / recall / AUROC | Entropy sum (EB-Sampler, NeurIPS 2025) | 1 − min top-1 (Fast-dLLM, ICLR 2026) |
+|---|---|---|---|---|
+| RefCOCOg val | 13.0% | **41.1 / 70.8 / 0.78** | 28.6 / 49.2 / 0.67 | 23.2 / 40.0 / 0.66 |
+| RefCOCOg test | 10.2% | **38.9 / 68.6 / 0.78** | 20.0 / 35.3 / 0.69 | 12.2 / 21.6 / 0.61 |
+| COCO | 33.8% | 61.6 / 34.5 / 0.62 | **64.3 / 36.0 / 0.74** | 58.1 / 32.6 / 0.70 |
+| LVIS | 40.5% | 62.7 / 34.1 / 0.60 | **67.0 / 36.4** / 0.59 | 61.6 / 33.5 / 0.59 |
+| Dense200 | 29.8% | **54.2 / 36.0 / 0.62** | 52.4 / 34.8 / 0.53 | 46.4 / 30.8 / 0.52 |
+
+**Result: hypothesis rejected.**
+- The release rule is the best detector on RefCOCOg and Dense200, and only slightly behind entropy on COCO/LVIS. On
+  RefCOCOg 41% of its triggers hit wrong boxes (3× the base rate), and it catches ~70% of all wrong boxes.
+- All criteria are weak overall (AUROC 0.52–0.78).
+- **The bottleneck is the repair, not the detection.** On RefCOCOg, E2b Fast (no fallback) beats E2b Hybrid
+  (74.78 vs 74.40) even though the rule flags most wrong boxes. Re-decoding a flagged block with NTP often does not
+  fix it, and 59% of triggers land on correct boxes that NTP can only keep or worsen.
+- Per the policy, the approach changes (not the threshold):
+  - a **learned acceptance head** on hidden states (*Learning Unmasking Policies for Diffusion Language Models*,
+    ICML 2026), since probability features plateau;
+  - **verify instead of replace** (*Blockwise Parallel Decoding*, Stern et al., NeurIPS 2018): keep the MTP block
+    unless the NTP stream disagrees with it.
+
+**E2b Fast mode** (0% fallback) vs Hybrid, for reference:
+
+| Set | E0 Hybrid | E2b Fast | E2b Hybrid | Paper Fast → Hybrid gap | Our Fast → Hybrid gap |
+|---|---|---|---|---|---|
+| RefCOCOg val | 74.12 | **74.78** | 74.40 | 2.6 | −0.4 (Fast is better) |
+| COCO (universal) | 63.41 | 63.07 | 64.22 | 2.5 (official) | 1.2 |
+| LVIS (universal) | 51.06 | 50.37 | 52.56 | 3.7 (official) | 2.2 |
+| Dense200 | 59.52 | 55.09 | 64.37 | **14.5** | **9.3** |
+
+E2b's pure parallel decoding scores 55.1 on Dense200, against the paper's Fast mode at 46.8, and runs 1.67×
+faster than Hybrid on the 2080 Ti (16.2 vs 9.7 boxes/s).
 
 ### Failure analysis (TIDE-style)
 
@@ -318,7 +357,7 @@ instances fused into one box).
 | F2 | **Spurious text boxes on receipts** with certainty forcing | SROIE background FP 7.0% → 13.9% (E2b) | Sharpening raises confidence on low-evidence text regions; the distillation data has no documents | Precision-penalized RL reward (Perception-R1, NeurIPS 2025, FP/FN penalty; Rex-Omni, CVPR 2026, RL suppresses duplicate and hallucinated boxes). E4 uses an F1-based reward; add an explicit FP penalty and document prompts |
 | F3 | **Runaway repetition loops** (output repeats boxes until the 8192-token cap) | 1–10 samples per set in every model; none of the methods removes them | Exposure to its own repeated context; the repetition penalty (1.1) is not enough | Unlikelihood training on repeated boxes (Welleck et al., *Neural Text Generation with Unlikelihood Training*, ICLR 2020) |
 | F4 | **Under-recall on LVIS** | ~65% of LVIS GT missed in every model | Long category lists; the model stops early. LVIS GT is federated, so some misses are unannotated-category artifacts | Pix2Seq sequence augmentation (Chen et al., ICLR 2022): noise objects plus delayed end-of-sequence to raise recall |
-| F5 | **Fallback rule misfiring on confident predictions** | RefCOCOg fallback +3.4/+4.2 while E2b *Fast* (0% fallback) beats E0 *Hybrid* (74.78 vs 74.12) | The release rule's spread test ignores probability mass (diagnosis above) | Mass-aware criterion (EB-Sampler, NeurIPS 2025), validated as a wrong-box detector at equal fallback budget |
+| F5 | **Fallback does not repair what it flags** | RefCOCOg: the rule catches ~70% of wrong boxes, yet E2b Fast (no fallback) beats E2b Hybrid (74.78 vs 74.40). A mass-aware criterion was tested and rejected (detector table above) | NTP re-decoding of a flagged block often reproduces or worsens the box; 59% of triggers hit correct boxes | Verify instead of replace (Blockwise Parallel Decoding, NeurIPS 2018); learned acceptance head (Learning Unmasking Policies, ICML 2026) |
 
 **Faithfulness caveat.** Part of the background-FP reduction is the model learning the annotation convention rather
 than seeing better. On COCO, many of E0's "false positives" are real but unannotated objects (e.g. distant
@@ -335,7 +374,8 @@ report, and checked on an exhaustively annotated set before claiming robustness.
      and on full LVIS val if a larger GPU is available (~6.5 h per model on the 2080 Ti).
    - Report **paired bootstrap 95% confidence intervals** for every Δ (resampling images; same images across
      models), so each improvement is stated with its significance.
-2. **Fix the reliability check itself.** The diagnosis (section 5) shows the release rule's top-k spread test
+2. **Fix the fallback's repair step (F5).** *(Updated: a mass-aware criterion was tested at equal budget and rejected;
+   see section 5. The original plan below is kept for the record.)* The diagnosis (section 5) shows the release rule's top-k spread test
    ignores probability mass and misfires on sharpened, confident predictions.
    - Evaluate a mass-aware criterion, EB-Sampler's entropy bound (Ben-Hamu et al., NeurIPS 2025), against the
      release rule **as a wrong-box detector at an equal fallback budget**, using the per-block features logged in
