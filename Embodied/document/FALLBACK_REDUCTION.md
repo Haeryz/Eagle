@@ -95,7 +95,9 @@ trivially, without improving the model.
     class cost, IoU > 0.5; no FP/FN penalty, as in their detection script).
   - The GRPO loss −exp(logp − logp.detach())·A + β·k3-KL, with the reference being the same network with the adapter
     disabled.
-  - Settings: β = 0.04, 8 generations per prompt, temperature 1.0, linear LR decay, grad clip 1.
+  - Settings: β = 0.04, 8 generations per prompt, linear LR decay, grad clip 1. The rollout temperature differs:
+    PR1 uses 1.0, which sends this model into repetition loops (problem 15), so rollouts use the model's released
+    sampling distribution (T 0.7, top-p 0.9).
 - **Adaptations to PBD**:
   1. Rollouts use the model's own Hybrid decoding with coordinates *sampled* (not arg-maxed) in MTP blocks, so the
      group explores. The fallback rule is unchanged.
@@ -412,6 +414,8 @@ report, and checked on an exhaustively annotated set before claiming robustness.
 | 11 | The release's thresholds (0.9/60) differ from the paper (0.7/80) | Kept the released code's values, since they are what the checkpoint ships with |
 | 13 | My E4 trace edit (commit 15a4cc1) dropped the `num_box_blocks` guard, so box blocks were not counted in normal evals (decoding unaffected) | Fixed in a251ab2. For the two affected E2a files, box blocks == `num_boxes` (every `<box>` is opened by an MTP step; verified on all 2560 E0 samples) recovers the denominator exactly |
 | 14 | Pooled fallback ratios are dominated by a few repetition-loop samples that hit the token cap | Per-image (macro) averages are the primary metric; pooled values and runaway counts are reported alongside |
+| 15 | E4 first attempt: rollouts at PR1's temperature 1.0 were degenerate (repetition loops to the token cap: F1 0.03, 0% clean finishes, 954 tokens and 8.7 s per rollout; 388 s per step, ~16 h projected) | Diagnosed on 8 rollouts per setting. Rollouts now use the model's released sampling distribution (T 0.7, top-p 0.9; F1 0.80, 100% clean, 54 tokens, 0.7 s). The scorer applies the same temperature + `top_p_logits` transform (fp16 GPU check: mean \|Δ logp\| 0.006) |
+| 16 | A pushed commit stalled on the VS Code credential bridge (no response) | Pushes now run with a timeout; commits wait locally until auth is back |
 | 12 | Coordinate top-1 is naturally low (~0.25–0.4) because probability mass spreads over neighbouring ordinal bins, so "top-1 < 0.9" is ~95% everywhere and uninformative | Mechanism checks use coordinate entropy and the actual ambiguity-trigger rate instead |
 
 ### Early observations (old-kernel runs, `results_oldvit/`, before restart)

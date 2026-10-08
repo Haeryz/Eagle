@@ -9,8 +9,9 @@ Ported from the Perception-R1 reference implementation (Yu et al., NeurIPS 2025;
     (PR1 matcher: L1 + GIoU + class cost, IoU > 0.5; DO_PENALTY=False as in PR1's detection script).
 
 Adaptations to PBD (the paper's stated future work: RL to "reduce fallback frequency"):
-  * Rollouts use the model's own hybrid decoding. Coordinates in MTP box blocks are *sampled* from the
-    coordinate-restricted distribution (temperature 1.0, as PR1) so the group explores; the fallback rule is unchanged.
+  * Rollouts use the model's own hybrid decoding under its released sampling distribution (temperature 0.7,
+    top-p 0.9; PR1's T=1.0 causes repetition loops here). Coordinates in MTP box blocks are *sampled* from the
+    coordinate-restricted distribution so the group explores; the fallback rule is unchanged.
   * A second reward, r_par = 1 - (NTP fallbacks / MTP box blocks), is group-normalized separately and added to the
     accuracy advantage (the two-reward normalization of LightningRL, arXiv 2603.13319), so neither reward's scale
     has to be hand-weighted.
@@ -41,6 +42,7 @@ from eaglevl.train.wandb_env import load_env  # noqa: E402
 from inference_compat import (apply_chat_template, build_generate_kwargs, parse_statistic_info,  # noqa: E402
                               prepare_generation_inputs, process_vision_info)
 from inference_grounding_ddp import parse_bbox_with_labels  # noqa: E402
+from eaglevl.utils.locany.generate_utils import top_p_logits  # noqa: E402  (same transform the sampler applies)
 
 
 # ----------------------------------------------------------------------------- reward (Perception-R1 port)
@@ -112,14 +114,19 @@ def build_scoring_inputs(gen, mask_id):
     return ids, pos, actions
 
 
-def action_logps(lm_base, vis, image_token_index, ids, pos, actions, coord_range, device):
+def action_logps(lm_base, vis, image_token_index, ids, pos, actions, coord_range, device, temperature=1.0,
+                 top_p=None):
+    """Log-probs of the sampled actions under the exact sampling distribution: logits / temperature, then nucleus
+    truncation (generate_utils.top_p_logits), then softmax; coordinates renormalized over the coordinate vocab."""
     hidden = lm_base.model(
         input_ids=torch.tensor([ids], device=device), visual_features=vis, image_token_index=image_token_index,
         position_ids=torch.tensor([pos], device=device), use_cache=False,
     ).last_hidden_state[0]
     idx = torch.tensor([a[0] for a in actions], device=device)
     tok = torch.tensor([a[1] for a in actions], device=device)
-    logits = (hidden[idx] @ lm_base.lm_head.weight.t()).float()
+    logits = (hidden[idx] @ lm_base.lm_head.weight.t()).float() / temperature
+    if top_p is not None and top_p < 1:
+        logits = top_p_logits(logits, top_p)
     lp_full = torch.log_softmax(logits, dim=-1).gather(1, tok[:, None]).squeeze(1)
     c0, c1 = coord_range
     is_coord = torch.tensor([a[2] == "mtp_coord" for a in actions], device=device)
@@ -142,7 +149,11 @@ def main():
     ap.add_argument("--steps", type=int, default=150)
     ap.add_argument("--lr", type=float, default=1e-5)
     ap.add_argument("--beta", type=float, default=0.04)             # PR1 / TRL default, k3 KL
-    ap.add_argument("--temperature", type=float, default=1.0)       # PR1
+    # Rollouts use the model's released sampling distribution (temperature 0.7, top-p 0.9; the eval decoding).
+    # PR1's T=1.0 suits Qwen2.5-VL but drives this model into repetition loops (diagnosed: F1 0.03, 0% clean
+    # finishes, 954 tokens/rollout at T=1.0 vs F1 0.80, 100%, 54 tokens at T=0.7/top-p 0.9).
+    ap.add_argument("--temperature", type=float, default=0.7)
+    ap.add_argument("--top_p", type=float, default=0.9)
     ap.add_argument("--max_new_tokens", type=int, default=1024)
     ap.add_argument("--max_gt_boxes", type=int, default=30)
     ap.add_argument("--seed", type=int, default=0)
@@ -212,7 +223,8 @@ def main():
         prepared = prepare_generation_inputs(inputs, device)
         kw = build_generate_kwargs(prepared, processor, "hybrid", args.max_new_tokens, include_eos_token=True,
                                    verbose=True, temperature=args.temperature)
-        kw.update(top_p=None, repetition_penalty=1.0, return_trace=True, sample_coords=True)
+        # no repetition penalty: it would make token log-probs depend on the whole history
+        kw.update(top_p=args.top_p, repetition_penalty=1.0, return_trace=True, sample_coords=True)
         return prepared, kw
 
     cursor = 0
@@ -259,7 +271,7 @@ def main():
                 lm_base.model.training = True
                 with torch.no_grad():
                     lp = action_logps(lm_base, vis, model.config.image_token_index, ids_, pos_, actions,
-                                      coord_range, device)
+                                      coord_range, device, args.temperature, args.top_p)
                 ref = torch.tensor([a[3] for a in actions], device=device)
                 diff = (lp - ref).abs()
                 by_kind = defaultdict(list)
@@ -285,9 +297,9 @@ def main():
                     continue
                 with torch.no_grad(), lm.disable_adapter():
                     ref_lp = action_logps(lm_base, vis, model.config.image_token_index, ids_, pos_, actions,
-                                          coord_range, device)
+                                          coord_range, device, args.temperature, args.top_p)
                 lp = action_logps(lm_base, vis, model.config.image_token_index, ids_, pos_, actions,
-                                  coord_range, device)
+                                  coord_range, device, args.temperature, args.top_p)
                 k3 = torch.exp(ref_lp - lp) - (ref_lp - lp) - 1
                 per_token = -torch.exp(lp - lp.detach()) * a + args.beta * k3
                 loss = per_token.mean() / n_rollouts
