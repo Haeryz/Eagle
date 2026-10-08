@@ -186,15 +186,22 @@ def sample_tokens(
                 logits[b], probs[b], token_ids, keep_k=generate_kwargs.get('keep_k_avg', 4),
                 generation_mode=generate_kwargs.get('generation_mode', 'hybrid'),
                 stats=generate_kwargs.get('block_stats'),
+                sample_coords=generate_kwargs.get('sample_coords', False),
             )
+        stats = generate_kwargs.get('block_stats')
         if decoded_box is not None:
             box_avg.append(decoded_box)
+            source = 'box'
         else:
             out_ref = decode_ref(logits[b], probs[b], token_ids)
             if out_ref is not None:
                 box_avg.append(torch.tensor(out_ref, dtype=x0.dtype, device=x0.device))
+                source = 'ref'
             else:
                 box_avg.append(fallback_box)
+                source = 'raw'  # caller falls back to the sampled tokens x0
+        if stats is not None:
+            stats['block_source'] = source
 
     box_avg = torch.stack(box_avg)
 
@@ -291,9 +298,12 @@ def decode_bbox_avg(
     end_thresh=0.2,
     generation_mode: str = 'hybrid',
     stats=None,
+    sample_coords: bool = False,
 ):
     """
     Decode bounding box coordinates using top-k weighted average.
+    With sample_coords=True (RL rollouts) each coordinate is sampled from the model's distribution restricted to
+    the coordinate vocabulary instead of taking the top-1; the hybrid reliability rule is applied unchanged.
     
     Args:
         logits: Logits of shape (6, vocab_size)
@@ -344,6 +354,10 @@ def decode_bbox_avg(
 
     first_valid_idx = mask.long().argmax(dim=-1, keepdim=True) # [4, 1]
     first_valid_ids = pos_ids.gather(-1, first_valid_idx).squeeze(-1) # [4]
+    if sample_coords:
+        coord_probs = probs[1:5, coord_start_token_id:coord_end_token_id + 1].float()
+        first_valid_ids = torch.multinomial(coord_probs / coord_probs.sum(-1, keepdim=True), 1).squeeze(-1) \
+            + coord_start_token_id
     _record_coord_stats(stats, probs[1:5])
     if generation_mode == 'hybrid':
         # Normal positions take top-1 (first_valid_ids); abnormal positions are replaced with 0

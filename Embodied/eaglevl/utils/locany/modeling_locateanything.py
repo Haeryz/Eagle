@@ -362,6 +362,11 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
         # Per-block fallback accounting: why each MTP box block was rejected (format vs spatial ambiguity)
         block_stats = {'num_box_blocks': 0, 'switch_format': 0, 'switch_ambig': 0}
         generate_kwargs['block_stats'] = block_stats
+        # Optional per-token trace for RL (log-likelihood of a rollout under the exact decoding contexts):
+        # each step records the MTP anchor index (or None for an AR step) and, per emitted token, how it was produced
+        # ('mtp_coord' sampled coordinate, 'mtp_raw' sampled block token, 'ar' sampled NTP token, 'det' deterministic).
+        return_trace = generate_kwargs.pop('return_trace', False)
+        trace = []
 
         # Pre-allocate mask tokens and position ids
         default_mask_token_id = self.token_ids['default_mask_token_id']
@@ -428,7 +433,21 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
 
             out_pattern = handle_pattern(new_tokens, self.token_ids, generation_mode)
             out_type = out_pattern['type']
-            if out_type in ('coord_box', 'point_box', 'empty_box', 'error_box'):
+            if return_trace:
+                kinds, logps = [], []
+                c0, c1 = self.token_ids['coord_start_token_id'], self.token_ids['coord_end_token_id']
+                coord_box = block_stats.get('block_source') == 'box' and out_type in ('coord_box', 'error_box')
+                for j, tok in enumerate(out_pattern['tokens']):
+                    if coord_box and 1 <= j <= 4 and c0 <= tok <= c1:
+                        kinds.append('mtp_coord')
+                        logps.append((probs[0, j, tok] / probs[0, j, c0:c1 + 1].sum()).log().item())
+                    elif is_box_empty and j < x0.shape[1] and tok == x0[0, j].item():
+                        kinds.append('mtp_raw')
+                        logps.append(probs[0, j, tok].log().item())
+                    else:
+                        kinds.append('det')
+                        logps.append(None)
+                trace.append((generated.size(1) - 1, kinds, logps))
                 block_stats['num_box_blocks'] += 1
             if out_type == 'error_box':
                 block_stats['switch_ambig' if block_stats['ambiguous_block'] else 'switch_format'] += 1
@@ -447,6 +466,8 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
             out_token = x0[0]
             out_type = 'continue_ar'
             token_val = out_token[0].item()
+            if return_trace:
+                trace.append((None, ['ar'], [probs[0, 0, token_val].log().item()]))
 
             box_end_token_id = self.token_ids['box_end_token_id']
             coord_start_token_id = self.token_ids['coord_start_token_id']
@@ -551,6 +572,9 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
                     f"num_coords_low_conf={block_stats.get('num_coords_low_conf', 0)}\n"
             print(out_info)
 
+            if return_trace:
+                return response[0], sampling_history, out_info, {'generated_ids': generated_ids[0].tolist(),
+                                                                 'prompt_len': seq_len, 'trace': trace}
             return response[0], sampling_history, out_info
 
         return response[0]
