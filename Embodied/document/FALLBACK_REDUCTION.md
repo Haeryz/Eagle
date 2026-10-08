@@ -145,8 +145,8 @@ HF checkpoint's `generate_utils.py`).
 |---|---|---|
 | E0 | Released model, Hybrid (and Fast) | Hybrid done; Fast queued |
 | E1 | E0 + M1 constrained blocks | queued |
-| E2a | Self-distilled LoRA, β = 0 | queued |
-| E2b | Self-distilled LoRA + certainty forcing, β = 1 | queued |
+| E2a | Self-distilled LoRA, β = 0 | trained; Hybrid eval 5/6 |
+| E2b | Self-distilled LoRA + certainty forcing, β = 1 | trained; eval queued |
 | E3 | E2b + M1 | queued |
 | E4 | E2b + GRPO (accuracy + parallelism reward) | queued |
 
@@ -178,6 +178,48 @@ samples that hit the 8192-token cap in a repetition loop.
 - **Fallback is overwhelmingly ambiguity-driven** (≥ 96% of fallbacks on every subset). Dense layouts trigger it
   most (Dense200: one block in four).
 
+### E2a: sequence-level self-distillation (LoRA, β = 0) vs E0, Hybrid mode
+
+**Hypothesis**: training the MTP stream on the model's own deterministic (Slow-mode, greedy, GT-filtered) outputs
+makes per-coordinate targets unimodal (Zhou et al., ICLR 2020), so fewer coordinates trip the ambiguity rule.
+
+| Subset | F1 E0 → E2a | Δ F1 | Fallback (per image) E0 → E2a | Δ | Pooled fallback E0 → E2a | Coord entropy E0 → E2a |
+|---|---|---|---|---|---|---|
+| RefCOCOg val | 74.12 → 74.66 | +0.54 | 19.0 → 22.2 | +3.2 | 19.0 → 22.2 | 2.17 → 1.37 |
+| RefCOCOg test | 78.96 → 80.12 | +1.16 | 13.8 → 17.0 | +3.2 | 13.8 → 17.0 | 2.10 → 1.33 |
+| COCO | 63.41 → 64.21 | +0.80 | 18.5 → 16.3 | −2.2 | 19.4 → 21.7 | 1.66 → 0.66 |
+| LVIS | 51.06 → 52.64 | +1.58 | 22.7 → 22.8 | +0.1 | 14.2 → 18.3 | 1.83 → 0.78 |
+| **Dense200** | **59.52 → 64.62** | **+5.10** | **26.1 → 21.3** | **−4.8** | 26.1 → 23.1 | 1.32 → 0.73 |
+| SROIE | *(running)* | | | | | |
+
+- **Accuracy improves on every subset.** Dense200 Hybrid (64.6) now exceeds the paper's own Slow / NTP-only mode
+  (61.5).
+- **Fallback falls where it matters most**: dense scenes, −4.8 points per image, and the COCO-domain typical image,
+  −2.2. It **rises on RefCOCOg** (+3.2), a prompt type ("locate a single instance") absent from the distillation
+  data.
+- **Mechanism check**: coordinate entropy drops 37–60% everywhere, so the targeted signal (multimodal coordinate
+  marginals) did move.
+
+**Diagnosis of the new RefCOCOg fallbacks** (`evaluation/tools/diagnose_ambiguity.py`, the 41 RefCOCOg-val rows
+where E2a newly falls back; fp32 CPU replay logging the top-k coordinates at every trigger):
+
+| | Rows with a trigger | Triggers | Genuinely bimodal | Dominant cluster + distant low-mass tail | Mean top-k coord mass |
+|---|---|---|---|---|---|
+| E0 | 7 | 8 | 2 | 6 | 0.52 |
+| E2a | 29 | 35 | 7 | 28 | 0.73 |
+
+Example E2a trigger: `[990: 0.40, 988: 0.26, 998: 0.20, 852: 0.04]`, i.e. 86% of the mass in one tight cluster,
+yet it fires. The release rule (top-1 < 0.9 ∧ >1 coordinate in the top-k ∧ max−min of top-k values > 60) is
+**probability-blind in its spread test**. After distillation sharpens a coordinate into a narrow peak, fewer
+neighbouring bins fill the top-4, so an improbable distant bin enters the top-k and trips the spread condition.
+The increase in fallbacks is therefore mostly the reliability check misfiring on *confident* predictions, not new
+ambiguity. Genuine two-object bimodality is 7 of 35 triggers.
+
+**Implication for the next step**: either push top-1 above the rule's 0.9 gate (certainty forcing, E2b), or replace
+the mass-blind heuristic with a principled, mass-aware criterion such as EB-Sampler's entropy bound
+(Ben-Hamu et al., NeurIPS 2025). The latter must be applied to the baseline as well and validated as an error
+detector (it should fire on blocks whose Fast-mode box is wrong), not tuned to lower the fallback count.
+
 ## 6. Problems encountered and how they were resolved
 
 | # | Problem | Resolution |
@@ -193,6 +235,8 @@ samples that hit the 8192-token cap in a repetition loop.
 | 9 | Fixes 7–8 changed kernels mid-baseline (same math, different fp16 kernels) | All evals restarted on identical code. The earlier runs are kept in `work_dirs/results_oldvit/` as a kernel-noise reference |
 | 10 | dParallel's β differs between the paper (2) and the reference configs (LLaDA 2, Dream 1) | Used the Dream setting (Qwen2.5-initialized, closest to our decoder) and documented it; no sweep |
 | 11 | The release's thresholds (0.9/60) differ from the paper (0.7/80) | Kept the released code's values, since they are what the checkpoint ships with |
+| 13 | My E4 trace edit (commit 15a4cc1) dropped the `num_box_blocks` guard, so box blocks were not counted in normal evals (decoding unaffected) | Fixed in a251ab2. For the two affected E2a files, box blocks == `num_boxes` (every `<box>` is opened by an MTP step; verified on all 2560 E0 samples) recovers the denominator exactly |
+| 14 | Pooled fallback ratios are dominated by a few repetition-loop samples that hit the token cap | Per-image (macro) averages are the primary metric; pooled values and runaway counts are reported alongside |
 | 12 | Coordinate top-1 is naturally low (~0.25–0.4) because probability mass spreads over neighbouring ordinal bins, so "top-1 < 0.9" is ~95% everywhere and uninformative | Mechanism checks use coordinate entropy and the actual ambiguity-trigger rate instead |
 
 ### Early observations (old-kernel runs, `results_oldvit/`, before restart)
