@@ -1318,6 +1318,10 @@ def main():
             logger.info(f'Checkpoint detected at {last_checkpoint}, resuming training.')
             
     set_seed(training_args.seed)
+
+    if 'wandb' in (training_args.report_to or []):
+        from eaglevl.train.wandb_env import load_env
+        load_env()  # WANDB_API_KEY from the local .env, WANDB_PROJECT=LocateAnything
     
     # Load model and tokenizer
     tokenizer_path = model_args.model_name_or_path or model_args.llm_path

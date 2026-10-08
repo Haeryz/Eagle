@@ -65,8 +65,8 @@ python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port="$PO
   --do_train True \
   --grad_checkpoint True \
   --group_by_length False \
-  --report_to "none" \
-  --run_name "$script_name" \
+  --report_to "wandb" \
+  --run_name "${RUN_NAME:-$(basename "$OUTPUT_DIR")}" \
   --use_onelogger False \
   --mlp_connector_layers 2 \
   2>&1 | tee -a "${OUTPUT_DIR}/training_log.txt"

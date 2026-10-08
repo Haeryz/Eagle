@@ -57,6 +57,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", action="append", required=True, help="name=path/to/answer.jsonl")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--wandb_id", default=None, help="log rows to this (resumable) W&B run in project LocateAnything")
+    ap.add_argument("--wandb_config", default="{}", help="JSON config attached to the W&B run")
     args = ap.parse_args()
 
     rows = []
@@ -75,6 +77,25 @@ def main():
         print("| " + " | ".join(f"{r[c]:.3f}" if isinstance(r.get(c), float) else str(r.get(c, "-")) for c in cols) + " |")
     if args.out:
         json.dump(rows, open(args.out, "w"), indent=2)
+    if args.wandb_id:
+        log_wandb(rows, cols, args.wandb_id, json.loads(args.wandb_config))
+
+
+def log_wandb(rows, cols, run_id, config):
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+    from eaglevl.train.wandb_env import load_env
+
+    load_env()
+    import wandb
+
+    run = wandb.init(project=os.environ["WANDB_PROJECT"], id=run_id, name=run_id, resume="allow",
+                     job_type="eval", group=config.get("experiment"), config=config)
+    for r in rows:
+        for c in cols[2:]:
+            if isinstance(r.get(c), (int, float)):
+                run.summary[f"{r['dataset']}/{c}"] = r[c]
+    run.log({"results": wandb.Table(columns=cols, data=[[r.get(c) for c in cols] for r in rows])})
+    run.finish()
 
 
 if __name__ == "__main__":
