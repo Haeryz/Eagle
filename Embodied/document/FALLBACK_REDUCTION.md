@@ -151,6 +151,7 @@ HF checkpoint's `generate_utils.py`).
 | E2b | Self-distilled LoRA + certainty forcing, β = 1 | done (Hybrid, 6/6) |
 | E3 | E2b + M1 | done (Hybrid, 6/6) |
 | E4 | E2b + GRPO (accuracy + parallelism reward) | done (Hybrid, 6/6) |
+| E5 | E2b recipe + self-distilled referring prompts (RefCOCOg fix attempt) | done (Hybrid, 6/6) |
 
 Results go in section 5. Every experiment is reported as hypothesis → method → code change → result against E0.
 
@@ -175,6 +176,8 @@ reproduced baseline E0:
   points.
 - **Ablation**: constrained decoding alone (E1) is within noise of E0, so the fallback reduction comes from the
   training steps.
+- **Follow-up E5** (adds self-distilled referring prompts): RefCOCOg fallback partly recovers (22.4 → 21.0 val),
+  with the best LVIS (54.5 official) and SROIE results, but stays above E0 on RefCOCOg.
 - **Open**: RefCOCOg fallback rises, while the fallback's benefit there is small for every model (−0.6 to +1.9 F1).
   Merged boxes in regular grids and runaway loops remain (failure catalogue below).
 
@@ -316,6 +319,34 @@ Official FastEvaluate: COCO **57.49** (E0 55.31, +2.18; the best of all runs), L
 format fallbacks come from blocks with P(`<box>`) < 0.6, which M1 leaves to the original decoder. M1 pays off only as
 a complement to training: sharpened models commit harder to malformed frames, and M1 then removes 44% of those
 format fallbacks (E2b → E3 on LVIS). **The fallback reduction therefore comes from the training steps.**
+
+### E5 (follow-up): E2b recipe + self-distilled *referring* prompts, Hybrid mode
+
+**Hypothesis**: the RefCOCOg fallback increase is a train/eval distribution shift. The distillation data held only
+multi-category detection prompts, and distillation removes multimodality only on the distribution it is trained on
+(Zhou et al., ICLR 2020). **Change**: `generate_seqkd.py --refcocog_parquet` labels 1,500 RefCOCOg *train*
+expressions (eval images excluded) with the slow-mode greedy teacher, using the eval prompt. 1,338 (89%) pass the GT
+filter. Then E2b's recipe is retrained on detection + referring (3,295 samples, 232 steps).
+
+| Subset | F1 E0 → E4 → **E5** | Fallback E0 → E2b → E4 → **E5** | Coord entropy E2b → E5 |
+|---|---|---|---|
+| RefCOCOg val | 74.12 → 74.88 → **74.72** | 19.0 → 22.4 → 22.8 → **21.0** | 1.30 → 0.71 |
+| RefCOCOg test | 78.96 → 79.80 → **79.58** | 13.8 → 18.0 → 17.0 → **17.0** | 1.27 → 0.68 |
+| COCO (official) | 55.31 → 57.49 → **56.63** | 18.5 → 15.9 → 15.5 → **13.8** | |
+| LVIS (official) | 53.18 → 53.37 → **54.53** | 22.7 → 21.7 → 21.2 → **21.2** | |
+| Dense200 | 59.52 → 66.34 → **64.39** | 26.1 → 20.1 → 18.7 → **20.2** (pooled 16.8, lowest) | |
+| SROIE | 39.17 → 42.27 → **42.53** | 6.4 → 5.8 → 5.6 → **5.4** | |
+
+- **Mechanism moved as predicted**: referring-expression coordinates sharpen (entropy −45%) once referring prompts are
+  in the distillation data.
+- **RefCOCOg fallback only partly recovers** (−1.4 / −1.0 vs E2b) and stays above E0. The remaining gap is the release
+  rule's probability-blind spread test firing on far tail candidates of *sharp* coordinates (diagnosis above), so it
+  needs a change to the repair/verification step (next steps), not more data.
+- **Side effects**: the lowest COCO fallback (13.8%), the best LVIS official F1 (54.53), and the best SROIE F1 and
+  fallback (42.53 / 5.4%). But dense-scene F1 is lower than E4's (64.4 vs 66.3), and SROIE runaway loops rise
+  (11 vs 3).
+- **E4 stays the headline model** (best dense-scene F1 and per-image fallback). E5 is the better choice when referring
+  and LVIS accuracy matter more than dense scenes.
 
 ### COCO / LVIS with the paper's official pipeline (FastEvaluate)
 
