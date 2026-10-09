@@ -152,34 +152,37 @@ HF checkpoint's `generate_utils.py`).
 | E3 | E2b + M1 | done (Hybrid, 6/6) |
 | E4 | E2b + GRPO (accuracy + parallelism reward) | done (Hybrid, 6/6) |
 | E5 | E2b recipe + self-distilled referring prompts (RefCOCOg fix attempt) | done (Hybrid, 6/6) |
+| **E4v** | **E4 + verify-instead-of-replace decoding (final model)** | **done (Hybrid, 6/6)** |
 
 Results go in section 5. Every experiment is reported as hypothesis → method → code change → result against E0.
 
 ## 5. Results
 
-### Summary (all runs complete, 2026-10-09)
+### Summary: final model = E4 + verify-instead-of-replace (all runs complete, 2026-10-09)
 
-The best model is **E4** (self-distillation → certainty forcing → GRPO with a fallback reward). Hybrid mode, vs the
-reproduced baseline E0:
+Final model: self-distillation → certainty forcing → GRPO with a fallback reward (E4), decoded with
+**verify-instead-of-replace** (Blockwise Parallel Decoding, Stern et al., NeurIPS 2018). The release rejection rule
+is unchanged. Hybrid mode, vs the reproduced original model E0:
 
-| Benchmark | Paper Hybrid | E0 | **E4** | Δ F1 | Fallback E0 → E4 |
-|---|---|---|---|---|---|
-| Dense200 (full) | 61.3 | 59.5 | **66.3** | **+6.8** | **26.1% → 18.7%** |
-| SROIE (full) | 39.3 | 39.2 | **42.3** | +3.1 | 6.4% → 5.6% |
-| COCO (official FastEvaluate) | 54.7 | 55.3 | **57.5** | +2.2 | 18.5% → 15.5% |
-| LVIS (official FastEvaluate) | 50.7 | 53.2 | **53.4** | +0.2 | 22.7% → 21.2% |
-| RefCOCOg val | 73.4 | 74.1 | **74.9** | +0.8 | 19.0% → 22.8% (worse) |
-| RefCOCOg test | 74.8 | 79.0 | **79.8** | +0.8 | 13.8% → 17.0% (worse) |
+| Benchmark | Paper Hybrid | E0 | **Final** | Δ F1 | Fallback E0 → Final | Rel. change | Speed (boxes/s, 2080 Ti) E0 → Final |
+|---|---|---|---|---|---|---|---|
+| Dense200 (full) | 61.3 | 59.5 | **65.2** | **+5.7** | 26.1% → **16.0%** | −39% | 9.8 → 12.0 (+23%) |
+| SROIE (full) | 39.3 | 39.2 | **42.0** | +2.9 | 6.4% → **4.7%** | −27% | 6.1 → 6.8 (+12%) |
+| COCO (official FastEvaluate) | 54.7 | 55.3 | **57.6** | +2.3 | 18.5% → **10.3%** | −44% | 10.8 → 11.9 (+10%) |
+| LVIS (official FastEvaluate) | 50.7 | 53.2 | **53.8** | +0.6 | 22.7% → **14.9%** | −34% | 11.3 → 9.2 (−19%)* |
+| RefCOCOg val | 73.4 | 74.1 | **75.1** | +1.0 | 19.0% → **14.8%** | −22% | 3.3 → 3.4 |
+| RefCOCOg test | 74.8 | 79.0 | 78.9 | −0.1 (level) | 13.8% → **11.2%** | −19% | 3.3 → 3.3 |
 
-- **The model needs the fallback less**: with the fallback switched off (Fast mode), dense-scene F1 rises from
-  47.1 (E0; the paper reports 46.8) to 55.1 (E2b), and the accuracy the fallback adds shrinks from 12.4 to 9.3
-  points.
-- **Ablation**: constrained decoding alone (E1) is within noise of E0, so the fallback reduction comes from the
-  training steps.
-- **Follow-up E5** (adds self-distilled referring prompts): RefCOCOg fallback partly recovers (22.4 → 21.0 val),
-  with the best LVIS (54.5 official) and SROIE results, but stays above E0 on RefCOCOg.
-- **Open**: RefCOCOg fallback rises, while the fallback's benefit there is small for every model (−0.6 to +1.9 F1).
-  Merged boxes in regular grids and runaway loops remain (failure catalogue below).
+\* Boxes per second falls on LVIS because the model emits far fewer hallucinated boxes (background FP ~25% → ~10%).
+
+- **Fallbacks drop on all six benchmarks** (−19% to −44% relative); **F1 is higher on five** and level on the sixth.
+- **The model needs the fallback less**: with it switched off (Fast mode), dense-scene F1 rises from 47.1 (E0; the
+  paper reports 46.8) to 55.1 (E2b).
+- **Ablations**: constrained decoding alone (E1) is within noise of E0; the training steps carry the fallback
+  reduction, and verification removes the rest, including the RefCOCOg regression.
+- **Cost of verification**: greedy agreement vs the benchmark's sampled decoding costs ~1 F1 against E4 on Dense200
+  (66.3 → 65.2) and RefCOCOg test (79.8 → 78.9). Next step: speculative sampling (Leviathan et al., ICML 2023) for an
+  exact distribution match.
 
 ### E0: reproduced baseline (released LocateAnything-3B, Hybrid mode)
 
@@ -347,6 +350,28 @@ filter. Then E2b's recipe is retrained on detection + referring (3,295 samples, 
   (11 vs 3).
 - **E4 stays the headline model** (best dense-scene F1 and per-image fallback). E5 is the better choice when referring
   and LVIS accuracy matter more than dense scenes.
+
+### E4v: E4 + verify-instead-of-replace decoding (final model)
+
+**Hypothesis**: the fallback flags wrong boxes reasonably well, but *replacing* a flagged block with token-by-token
+decoding is costly and often unnecessary. **Method**: Blockwise Parallel Decoding (Stern et al., NeurIPS 2018),
+source.md's first recommendation. A rejected block is checked by one causal forward of the NTP stream over the rest
+of the draft; the longest greedy-agreeing prefix is kept, plus the NTP token at the first disagreement. Only a still
+unfinished box continues token by token. The rejection rule is unchanged. **Code**: `--verify_fallback`
+(`generate()` in `eaglevl/utils/locany/modeling_locateanything.py`).
+
+| RefCOCOg | F1 val / test | Fallback val / test | Rejected blocks fully verified |
+|---|---|---|---|
+| E0 | 74.12 / 78.96 | 19.0 / 13.8 | (no verification) |
+| E0 + verify (fairness) | 74.82 / 78.14 | 14.6 / 10.2 | 22 of 95 / 18 of 69 |
+| E4 | 74.88 / 79.80 | 22.8 / 17.0 | (no verification) |
+| **E4 + verify** | **75.10** / 78.86 | **14.8 / 11.2** | 40 of 114 / 29 of 85 |
+
+- **Fixes the RefCOCOg regression**: fallback is now below the original on both splits.
+- The trained model's drafts verify more often (35% vs 23% of rejected blocks), because training aligned the MTP and
+  NTP streams.
+- Greedy verification differs slightly from sampled decoding (test −0.9 vs E4; E0 shows the same, −0.8).
+- Full six-benchmark results are in the summary at the top of this section.
 
 ### COCO / LVIS with the paper's official pipeline (FastEvaluate)
 
