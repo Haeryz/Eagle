@@ -150,7 +150,7 @@ HF checkpoint's `generate_utils.py`).
 | E2a | Self-distilled LoRA, β = 0 | done (Hybrid, 6/6) |
 | E2b | Self-distilled LoRA + certainty forcing, β = 1 | done (Hybrid, 6/6) |
 | E3 | E2b + M1 | done (Hybrid, 6/6) |
-| E4 | E2b + GRPO (accuracy + parallelism reward) | queued |
+| E4 | E2b + GRPO (accuracy + parallelism reward) | done (Hybrid, 6/6) |
 
 Results go in section 5. Every experiment is reported as hypothesis → method → code change → result against E0.
 
@@ -249,6 +249,35 @@ unaffected.
   original decoder (e.g. a block emitting the text token `None` instead of the `none` empty-box token).
 - Under the official FastEvaluate metric, E3 equals E2b on COCO/LVIS (below), so M1's F1 effect is metric-dependent.
   Its fallback effect is not.
+
+### E4: E2b + GRPO rewarding accuracy and fewer fallbacks (the paper's stated future work), Hybrid mode
+
+**Hypothesis**: RL with a reward for detection accuracy (Perception-R1) plus a separately normalized parallelism
+reward (1 − fallback rate) teaches the parallel blocks to be both correct and accepted, which SFT cannot target
+directly. Trained for 150 steps × 2 prompts × 8 rollouts from E2b (fresh LoRA on merged E2b; KL reference = E2b;
+KL 0.0 at step 0, ≤ 0.01 throughout; W&B run `train_E4`).
+
+| Subset | F1 E0 → E2b → **E4** | Δ F1 E4 − E0 | Δ F1 E4 − E2b | Fallback E0 → E2b → **E4** | Δ E4 − E0 |
+|---|---|---|---|---|---|
+| RefCOCOg val | 74.12 → 74.40 → **74.88** | +0.76 | +0.48 | 19.0 → 22.4 → **22.8** | +3.8 |
+| RefCOCOg test | 78.96 → 80.04 → **79.80** | +0.84 | −0.24 | 13.8 → 18.0 → **17.0** | +3.2 |
+| COCO | 63.41 → 64.22 → **64.62** | +1.21 | +0.40 | 18.5 → 15.9 → **15.5** | −3.0 |
+| LVIS | 51.06 → 52.56 → **52.75** | +1.69 | +0.19 | 22.7 → 21.7 → **21.2** | −1.5 |
+| **Dense200** | 59.52 → 64.37 → **66.34** | **+6.82** | **+1.97** | 26.1 → 20.1 → **18.7** | **−7.4** |
+| SROIE | 39.17 → 41.28 → **42.27** | +3.10 | +0.99 | 6.4 → 5.8 → **5.6** | −0.8 |
+
+Official FastEvaluate: COCO **57.49** (E0 55.31, +2.18; the best of all runs), LVIS 53.37 (E0 53.18, +0.19).
+
+- **E4 is the best model overall.** F1 improves on all six subsets vs E0. On top of E2b it adds +2.0 F1 and −1.3
+  points of per-image fallback on Dense200, where the fallback reward has the most signal.
+- **Mechanism check (error analysis, runaways excluded)**:
+  - Dense200 improves on every error type: correct 87.9 → 92.5%, localization 9.0 → 6.1%, background FP
+    2.6 → 1.2%, missed 31.4 → 26.5%.
+  - RL partly repairs two failure modes of certainty forcing. **F2** (spurious receipt boxes): SROIE background FP
+    13.9% (E2b) → 9.5%. **F3** (runaway loops): SROIE 8 → 3 samples.
+- **Limitation**: with only 300 prompts on one GPU the policy moved little (KL ~ 0.002), and the training reward shows
+  no clear trend; the held-out gains are small except on Dense200. RefCOCOg fallback stays above the baseline, since
+  the RL prompts are COCO detection only.
 
 ### COCO / LVIS with the paper's official pipeline (FastEvaluate)
 
