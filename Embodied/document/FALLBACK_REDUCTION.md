@@ -145,7 +145,7 @@ HF checkpoint's `generate_utils.py`).
 
 | ID | Change | Status |
 |---|---|---|
-| E0 | Released model, Hybrid (and Fast) | Hybrid done; Fast queued |
+| E0 | Released model, Hybrid (and Fast) | done (Hybrid and Fast, 6/6) |
 | E1 | E0 + M1 constrained blocks | done (Hybrid, 6/6) |
 | E2a | Self-distilled LoRA, β = 0 | done (Hybrid, 6/6) |
 | E2b | Self-distilled LoRA + certainty forcing, β = 1 | done (Hybrid, 6/6) |
@@ -155,6 +155,28 @@ HF checkpoint's `generate_utils.py`).
 Results go in section 5. Every experiment is reported as hypothesis → method → code change → result against E0.
 
 ## 5. Results
+
+### Summary (all runs complete, 2026-10-09)
+
+The best model is **E4** (self-distillation → certainty forcing → GRPO with a fallback reward). Hybrid mode, vs the
+reproduced baseline E0:
+
+| Benchmark | Paper Hybrid | E0 | **E4** | Δ F1 | Fallback E0 → E4 |
+|---|---|---|---|---|---|
+| Dense200 (full) | 61.3 | 59.5 | **66.3** | **+6.8** | **26.1% → 18.7%** |
+| SROIE (full) | 39.3 | 39.2 | **42.3** | +3.1 | 6.4% → 5.6% |
+| COCO (official FastEvaluate) | 54.7 | 55.3 | **57.5** | +2.2 | 18.5% → 15.5% |
+| LVIS (official FastEvaluate) | 50.7 | 53.2 | **53.4** | +0.2 | 22.7% → 21.2% |
+| RefCOCOg val | 73.4 | 74.1 | **74.9** | +0.8 | 19.0% → 22.8% (worse) |
+| RefCOCOg test | 74.8 | 79.0 | **79.8** | +0.8 | 13.8% → 17.0% (worse) |
+
+- **The model needs the fallback less**: with the fallback switched off (Fast mode), dense-scene F1 rises from
+  47.1 (E0; the paper reports 46.8) to 55.1 (E2b), and the accuracy the fallback adds shrinks from 12.4 to 9.3
+  points.
+- **Ablation**: constrained decoding alone (E1) is within noise of E0, so the fallback reduction comes from the
+  training steps.
+- **Open**: RefCOCOg fallback rises, while the fallback's benefit there is small for every model (−0.6 to +1.9 F1).
+  Merged boxes in regular grids and runaway loops remain (failure catalogue below).
 
 ### E0: reproduced baseline (released LocateAnything-3B, Hybrid mode)
 
@@ -356,16 +378,34 @@ Each continuous criterion fires on exactly as many blocks as the release rule.
 - The release rule is the best detector on RefCOCOg and Dense200, and only slightly behind entropy on COCO/LVIS. On
   RefCOCOg 41% of its triggers hit wrong boxes (3× the base rate), and it catches ~70% of all wrong boxes.
 - All criteria are weak overall (AUROC 0.52–0.78).
-- **The bottleneck is the repair, not the detection.** On RefCOCOg, E2b Fast (no fallback) beats E2b Hybrid
-  (74.78 vs 74.40) even though the rule flags most wrong boxes. Re-decoding a flagged block with NTP often does not
-  fix it, and 59% of triggers land on correct boxes that NTP can only keep or worsen.
+- **The repair step is weak.** On RefCOCOg the rule flags most wrong boxes, yet the fallback changes F1 by only
+  −0.6 to +1.9 points (Fast-mode control below, for E0 as well as E2b). Re-decoding a flagged block with NTP often
+  does not fix it, and 59% of triggers land on correct boxes that NTP can only keep or worsen.
 - Per the policy, the approach changes (not the threshold):
   - a **learned acceptance head** on hidden states (*Learning Unmasking Policies for Diffusion Language Models*,
     ICML 2026), since probability features plateau;
   - **verify instead of replace** (*Blockwise Parallel Decoding*, Stern et al., NeurIPS 2018): keep the MTP block
     unless the NTP stream disagrees with it.
 
-**E2b Fast mode** (0% fallback) vs Hybrid, for reference:
+**Fast mode (0% fallback): how much each model needs the fallback.** E0 Fast is the control. It reproduces the
+paper's Fast mode on Dense200 (47.1 vs 46.8).
+
+| Set | E0 Fast | E2b Fast | E0 Hybrid | E2b Hybrid | Cost of turning the fallback off: E0 → E2b |
+|---|---|---|---|---|---|
+| **Dense200** | **47.08** | **55.09 (+8.0)** | 59.52 | 64.37 | **12.4 → 9.3** |
+| LVIS | 47.69 | 50.37 (+2.7) | 51.06 | 52.56 | 3.4 → 2.2 |
+| COCO | 61.56 | 63.07 (+1.5) | 63.41 | 64.22 | 1.8 → 1.2 |
+| RefCOCOg val | 74.74 | 74.78 | 74.12 | 74.40 | −0.6 → −0.4 |
+| RefCOCOg test | 77.58 | 78.14 | 78.96 | 80.04 | 1.4 → 1.9 |
+| SROIE | 38.62 | 41.65 (+3.0) | 39.17 | 41.28 | 0.6 → −0.4 |
+
+- **Direct evidence for the goal**: training raises pure parallel decoding by +8.0 F1 on dense scenes and shrinks
+  the accuracy the model gets from the fallback (12.4 → 9.3 on Dense200, 3.4 → 2.2 on LVIS, 1.8 → 1.2 on COCO).
+- **Correction**: an earlier version of this log attributed "Fast beats Hybrid on RefCOCOg val" to our training. The
+  E0 control shows the original model does the same on val, and on RefCOCOg test the fallback helps both models
+  (+1.4 / +1.9). On RefCOCOg the fallback's benefit is small and inconsistent (−0.6 to +1.9 F1) for every model.
+
+*(Earlier table, kept for the record)* **E2b Fast mode** (0% fallback) vs Hybrid:
 
 | Set | E0 Hybrid | E2b Fast | E2b Hybrid | Paper Fast → Hybrid gap | Our Fast → Hybrid gap |
 |---|---|---|---|---|---|
@@ -404,7 +444,7 @@ instances fused into one box).
 | F2 | **Spurious text boxes on receipts** with certainty forcing | SROIE background FP 7.0% → 13.9% (E2b) | Sharpening raises confidence on low-evidence text regions; the distillation data has no documents | Precision-penalized RL reward (Perception-R1, NeurIPS 2025, FP/FN penalty; Rex-Omni, CVPR 2026, RL suppresses duplicate and hallucinated boxes). E4 uses an F1-based reward; add an explicit FP penalty and document prompts |
 | F3 | **Runaway repetition loops** (output repeats boxes until the 8192-token cap) | 1–10 samples per set in every model; none of the methods removes them | Exposure to its own repeated context; the repetition penalty (1.1) is not enough | Unlikelihood training on repeated boxes (Welleck et al., *Neural Text Generation with Unlikelihood Training*, ICLR 2020) |
 | F4 | **Under-recall on LVIS** | ~65% of LVIS GT missed in every model | Long category lists; the model stops early. LVIS GT is federated, so some misses are unannotated-category artifacts | Pix2Seq sequence augmentation (Chen et al., ICLR 2022): noise objects plus delayed end-of-sequence to raise recall |
-| F5 | **Fallback does not repair what it flags** | RefCOCOg: the rule catches ~70% of wrong boxes, yet E2b Fast (no fallback) beats E2b Hybrid (74.78 vs 74.40). A mass-aware criterion was tested and rejected (detector table above) | NTP re-decoding of a flagged block often reproduces or worsens the box; 59% of triggers hit correct boxes | Verify instead of replace (Blockwise Parallel Decoding, NeurIPS 2018); learned acceptance head (Learning Unmasking Policies, ICML 2026) |
+| F5 | **Fallback repairs little of what it flags** | RefCOCOg: the rule catches ~70% of wrong boxes, yet the fallback changes F1 by only −0.6 to +1.9 (E0 and E2b alike). A mass-aware criterion was tested and rejected (detector table above) | NTP re-decoding of a flagged block often reproduces or worsens the box; 59% of triggers hit correct boxes | Verify instead of replace (Blockwise Parallel Decoding, NeurIPS 2018); learned acceptance head (Learning Unmasking Policies, ICML 2026) |
 
 **Faithfulness caveat.** Part of the background-FP reduction is the model learning the annotation convention rather
 than seeing better. On COCO, many of E0's "false positives" are real but unannotated objects (e.g. distant
