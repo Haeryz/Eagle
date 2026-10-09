@@ -146,7 +146,7 @@ HF checkpoint's `generate_utils.py`).
 | ID | Change | Status |
 |---|---|---|
 | E0 | Released model, Hybrid (and Fast) | Hybrid done; Fast queued |
-| E1 | E0 + M1 constrained blocks | queued |
+| E1 | E0 + M1 constrained blocks | done (Hybrid, 6/6) |
 | E2a | Self-distilled LoRA, β = 0 | done (Hybrid, 6/6) |
 | E2b | Self-distilled LoRA + certainty forcing, β = 1 | done (Hybrid, 6/6) |
 | E3 | E2b + M1 | done (Hybrid, 6/6) |
@@ -278,6 +278,22 @@ Official FastEvaluate: COCO **57.49** (E0 55.31, +2.18; the best of all runs), L
 - **Limitation**: with only 300 prompts on one GPU the policy moved little (KL ~ 0.002), and the training reward shows
   no clear trend; the held-out gains are small except on Dense200. RefCOCOg fallback stays above the baseline, since
   the RL prompts are COCO detection only.
+
+### E1 (ablation): M1 constrained block decoding on the original model, Hybrid mode
+
+| Subset | F1 E0 → E1 | Fallback E0 → E1 | Format fallback E0 → E1 |
+|---|---|---|---|
+| RefCOCOg val | 74.12 → 74.20 | 19.0 → 19.0 | 0.00 → 0.00 |
+| RefCOCOg test | 78.96 → 78.96 | 13.8 → 13.8 | 0.00 → 0.00 |
+| COCO (official FastEvaluate) | 55.31 → 55.45 | 18.5 → 18.4 | 0.80 → 0.80 |
+| LVIS (official FastEvaluate) | 53.18 → 53.86 | 22.7 → 22.3 | 0.75 → 0.70 |
+| Dense200 | 59.52 → 58.96 | 26.1 → 26.5 | 0.04 → 0.04 |
+| SROIE | 39.17 → 39.00 | 6.4 → 5.9 | 0.00 → 0.00 |
+
+**On its own, M1 is within noise of the baseline** (F1 within ±0.7, fallback within ±0.5). The original model's few
+format fallbacks come from blocks with P(`<box>`) < 0.6, which M1 leaves to the original decoder. M1 pays off only as
+a complement to training: sharpened models commit harder to malformed frames, and M1 then removes 44% of those
+format fallbacks (E2b → E3 on LVIS). **The fallback reduction therefore comes from the training steps.**
 
 ### COCO / LVIS with the paper's official pipeline (FastEvaluate)
 
