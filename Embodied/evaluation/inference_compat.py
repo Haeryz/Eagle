@@ -42,7 +42,8 @@ def prepare_generation_inputs(processor_inputs, device):
 
 
 def build_generate_kwargs(prepared_inputs, processor, generation_mode, max_new_tokens, include_eos_token=False,
-                          verbose=False, constrained_block=False, temperature=0.7, log_block_features=False):
+                          verbose=False, constrained_block=False, temperature=0.7, log_block_features=False,
+                          verify_fallback=False):
     tokenizer = getattr(processor, "tokenizer", None)
     if tokenizer is None and hasattr(processor, "batch_decode"):
         tokenizer = processor
@@ -62,6 +63,7 @@ def build_generate_kwargs(prepared_inputs, processor, generation_mode, max_new_t
         verbose=verbose,
         constrained_block=constrained_block,
         log_block_features=log_block_features,
+        verify_fallback=verify_fallback,
     )
 
     if prepared_inputs["image_grid_hws"] is not None:

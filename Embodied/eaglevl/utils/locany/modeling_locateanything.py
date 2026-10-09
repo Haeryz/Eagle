@@ -368,6 +368,11 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
         # ('mtp_coord' sampled coordinate, 'mtp_raw' sampled block token, 'ar' sampled NTP token, 'det' deterministic).
         return_trace = generate_kwargs.pop('return_trace', False)
         trace = []
+        # Verify instead of replace (Blockwise Parallel Decoding, Stern et al., NeurIPS 2018): when a box block is
+        # rejected, one causal forward of the NTP stream scores the rest of the drafted box; the longest prefix the
+        # greedy NTP prediction agrees with is kept, plus the NTP token at the first disagreement. Only a box that is
+        # still unfinished then continues token by token. The rejection rule itself is unchanged.
+        verify_fallback = generate_kwargs.pop('verify_fallback', False)
 
         # Pre-allocate mask tokens and position ids
         default_mask_token_id = self.token_ids['default_mask_token_id']
@@ -426,6 +431,7 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
             next_token_logits = outputs.logits[:, -n_future_tokens:, :]
             block_stats['ambiguous_block'] = False
             block_stats.pop('block_features', None)
+            block_stats.pop('draft_coords', None)
             probs, confidence, x0, box_avg = sample_tokens(
                 next_token_logits, generated, self.token_ids, keep_k=5, **generate_kwargs
             )
@@ -539,7 +545,32 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
                 break
 
             if generation_mode == 'hybrid':
-                if out_type == 'error_box':
+                if out_type == 'error_box' and verify_fallback and len(block_stats.get('draft_coords') or []) == 4:
+                    # tokens kept by the rejected block (<box> + leading valid coords) are not cached yet
+                    n_prefix = out_token.shape[0]
+                    draft = torch.tensor(block_stats['draft_coords'][n_prefix - 1:] + [self.token_ids['box_end_token_id']],
+                                         dtype=generated.dtype, device=generated.device)
+                    verify_inputs = _prepare_input_in_ar(torch.cat([generated, draft[:-1].unsqueeze(0)], dim=1))
+                    verify_inputs['logits_to_keep'] = draft.shape[0]
+                    with torch.no_grad():
+                        verify_logits = self.language_model(**verify_inputs).logits[0, -draft.shape[0]:]
+                    iter_round += 1
+                    pred = verify_logits.argmax(-1)
+                    agree = (pred == draft).long()
+                    k = int(agree.cumprod(0).sum())
+                    accepted = draft[:k] if k == draft.shape[0] else torch.cat([draft[:k], pred[k:k + 1]])
+                    generated = torch.cat([generated, accepted.unsqueeze(0)], dim=1)
+                    block_stats['verify_blocks'] = block_stats.get('verify_blocks', 0) + 1
+                    last = accepted[-1].item()
+                    c0, c1 = self.token_ids['coord_start_token_id'], self.token_ids['coord_end_token_id']
+                    if last == self.token_ids['box_end_token_id']:
+                        block_stats['verify_full'] = block_stats.get('verify_full', 0) + 1  # repaired, no NTP loop
+                    elif c0 <= last <= c1 or last == self.token_ids['none_token_id']:
+                        use_mtp = False  # still unfinished: continue token by token, as the release does
+                        switch_to_ar_count += 1
+                    else:
+                        break  # the NTP stream ends the box early, as an AR step would (hybrid 'im_end')
+                elif out_type == 'error_box':
                     use_mtp = False
                     switch_to_ar_count += 1
                 elif out_type == 'box_end_ar':
@@ -571,6 +602,8 @@ class LocateAnythingForConditionalGeneration(LocateAnythingPreTrainedModel, Gene
                     f"switch_format={block_stats['switch_format']}; " + \
                     f"switch_ambig={block_stats['switch_ambig']}; " + \
                     f"num_box_blocks={block_stats['num_box_blocks']}; " + \
+                    f"verify_blocks={block_stats.get('verify_blocks', 0)}; " + \
+                    f"verify_full={block_stats.get('verify_full', 0)}; " + \
                     f"num_coords={block_stats.get('num_coords', 0)}; " + \
                     f"sum_coord_top1={block_stats.get('sum_coord_top1', 0.0):.4f}; " + \
                     f"sum_coord_entropy={block_stats.get('sum_coord_entropy', 0.0):.4f}; " + \

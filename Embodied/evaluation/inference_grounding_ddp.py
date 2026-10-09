@@ -150,6 +150,8 @@ def get_args():
     parser.add_argument("--constrained_block", action="store_true",
                         help="Grammar-constrained MTP box blocks (DINGO-style).")
     parser.add_argument("--seed", type=int, default=None, help="Seed for per-sample reproducible sampling.")
+    parser.add_argument("--verify_fallback", action="store_true",
+                        help="Verify a rejected MTP box with the NTP stream instead of replacing it (Stern et al. 2018).")
     parser.add_argument("--log_block_features", action="store_true",
                         help="Store per-MTP-block reliability features (top-1, spread, entropy) in decode_stats.")
     parser.add_argument(
@@ -240,6 +242,7 @@ class LocateAnythingWorker:
         self.seed = seed
         self.temperature = 0.7  # eval default; 0 gives greedy decoding (used for self-distillation targets)
         self.log_block_features = False
+        self.verify_fallback = False
         self.last_stats = None
         self.model = load_model(model_path, dtype=dtype, lora_path=lora_path)
         self.processor = AutoProcessor.from_pretrained(
@@ -303,6 +306,7 @@ class LocateAnythingWorker:
             constrained_block=self.constrained_block,
             temperature=self.temperature,
             log_block_features=self.log_block_features,
+            verify_fallback=self.verify_fallback,
         )
 
         if self.seed is not None:
@@ -722,6 +726,7 @@ def main():
         lora_path=args.lora_path, constrained_block=args.constrained_block, seed=args.seed,
     )
     worker.log_block_features = args.log_block_features or args.generation_mode == "fast"
+    worker.verify_fallback = args.verify_fallback
     
     # Load test data
     if is_main_process():

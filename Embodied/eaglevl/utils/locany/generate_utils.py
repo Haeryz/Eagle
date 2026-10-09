@@ -376,6 +376,8 @@ def decode_bbox_avg(
         is_abnormal = coord_is_abnormal(pos_probs, pos_ids, token_ids)
         final_coords = torch.where(is_abnormal, torch.tensor(0, device=pos_ids.device), first_valid_ids)
         _record_ambiguity(stats, is_abnormal)
+        if stats is not None:
+            stats['draft_coords'] = first_valid_ids.tolist()  # the full draft, for verify-instead-of-replace
     elif generation_mode == 'fast':
         final_coords = first_valid_ids
 
@@ -476,6 +478,8 @@ def constrained_box_decode(
     if generation_mode == 'hybrid':
         pos_probs, pos_ids = torch.topk(probs[1:1 + n], k=keep_k, dim=-1)
         is_abnormal = coord_is_abnormal(pos_probs, pos_ids, token_ids)
+        if stats is not None and n == 4:
+            stats['draft_coords'] = final_coords.tolist()
         final_coords = torch.where(is_abnormal, torch.zeros_like(final_coords), final_coords)
         _record_ambiguity(stats, is_abnormal)
 
