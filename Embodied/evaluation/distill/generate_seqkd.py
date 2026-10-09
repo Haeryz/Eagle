@@ -45,7 +45,9 @@ def precision_against_gt(pred, gt, iou_thr):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model_path", required=True)
-    ap.add_argument("--coco_ann", required=True, help="instances_train2017.json")
+    ap.add_argument("--coco_ann", default=None, help="instances_train2017.json (detection prompts)")
+    ap.add_argument("--refcocog_parquet", default=None,
+                    help="RefCOCOg *train* split parquet (jxu124/refcocog): referring prompts instead of detection")
     ap.add_argument("--excluded_ids", required=True, help="excluded_coco_ids.json from make_subsets.py")
     ap.add_argument("--image_dir", required=True, help="where train2017 images are cached")
     ap.add_argument("--out_jsonl", required=True)
@@ -57,23 +59,37 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
-    coco = json.load(open(args.coco_ann))
-    cat_name = {c["id"]: c["name"] for c in coco["categories"]}
     excluded = set(json.load(open(args.excluded_ids)))
     gt = defaultdict(lambda: defaultdict(list))
-    for a in coco["annotations"]:
-        if a["iscrowd"] or a["image_id"] in excluded:
-            continue
-        x, y, w, h = a["bbox"]
-        gt[a["image_id"]][cat_name[a["category_id"]]].append([x, y, x + w, y + h])
-    image_ids = sorted(gt)
-    random.Random(args.seed).shuffle(image_ids)
-    image_ids = image_ids[:args.num_images]
-    del coco
+    question_override = None
+    if args.refcocog_parquet:
+        # Referring prompts: one sampled expression per referred object; same prompt as the RefCOCOg evaluation.
+        import pandas as pd
+        question_override = "Locate a single instance that matches the following description: "
+        df = pd.read_parquet(args.refcocog_parquet)
+        df = df[(df["split"] == "train") & (~df["image_id"].isin(excluded))]
+        rng = random.Random(args.seed)
+        rows = df.sample(frac=1.0, random_state=args.seed).drop_duplicates("image_id")
+        for _, r in rows.iterrows():
+            sent = rng.choice(list(r["sentences"]))["sent"]
+            gt[(int(r["image_id"]), int(r["ann_id"]))][sent].append([float(v) for v in r["bbox"]])
+        image_ids = list(gt)[:args.num_images]
+    else:
+        coco = json.load(open(args.coco_ann))
+        cat_name = {c["id"]: c["name"] for c in coco["categories"]}
+        for a in coco["annotations"]:
+            if a["iscrowd"] or a["image_id"] in excluded:
+                continue
+            x, y, w, h = a["bbox"]
+            gt[a["image_id"]][cat_name[a["category_id"]]].append([x, y, x + w, y + h])
+        image_ids = sorted(gt)
+        random.Random(args.seed).shuffle(image_ids)
+        image_ids = image_ids[:args.num_images]
+        del coco
 
     done = set()
     if os.path.exists(args.out_jsonl):
-        done = {json.loads(l)["image_id"] for l in open(args.out_jsonl)}
+        done = {tuple(v) if isinstance(v := json.loads(l)["image_id"], list) else v for l in open(args.out_jsonl)}
     os.makedirs(args.image_dir, exist_ok=True)
     os.makedirs(os.path.dirname(args.out_jsonl) or ".", exist_ok=True)
 
@@ -81,9 +97,10 @@ def main():
     worker.temperature = 0  # greedy teacher: the mode of the NTP distribution
     kept = 0
     with open(args.out_jsonl, "a") as fout:
-        for image_id in tqdm(image_ids):
-            if image_id in done:
+        for key in tqdm(image_ids):
+            if key in done:
                 continue
+            image_id = key[0] if isinstance(key, tuple) else key
             rel = f"coco/train2017/{image_id:012d}.jpg"
             path = os.path.join(args.image_dir, rel)
             if not os.path.exists(path):
@@ -94,20 +111,21 @@ def main():
 
             image = Image.open(path).convert("RGB")
             w, h = image.size
-            categories = list(gt[image_id])
-            output, question = worker.generate(image, categories, max_new_tokens=args.max_new_tokens)
+            categories = list(gt[key])
+            output, question = worker.generate(image, categories, max_new_tokens=args.max_new_tokens,
+                                               question_override=question_override)
             response = output.replace("<|im_end|>", "").strip()
             pred = parse_prediction(response, w, h)
-            correct, total = precision_against_gt(pred, gt[image_id], args.iou_thr)
+            correct, total = precision_against_gt(pred, gt[key], args.iou_thr)
             keep = total > 0 and correct / total >= args.min_precision
             kept += keep
             fout.write(json.dumps({
-                "image_id": image_id,
+                "image_id": list(key) if isinstance(key, tuple) else key,
                 "image": rel,
                 "keep": bool(keep),
                 "precision": correct / total if total else 0.0,
                 "num_pred": total,
-                "num_gt": sum(len(v) for v in gt[image_id].values()),
+                "num_gt": sum(len(v) for v in gt[key].values()),
                 "conversations": [
                     {"from": "human", "value": question},
                     {"from": "gpt", "value": response},
