@@ -3,11 +3,9 @@
   "createdOnFiles": {"v": 1, "at": "2026-10-14T07:10:00Z"},
   "lists": "css",
   "title": "LocateAnything E1 Explainer",
-  "order": ["e2e", "mtp-step", "hybrid-loop", "swap", "dingo", "trace", "results"],
+  "order": ["overview"],
   "sections": {
-    "s1": {"description": "How the released LocateAnything-3B turns an image and a prompt into boxes, and where fallbacks come from", "start": "e2e"},
-    "s2": {"description": "Where E1 (DINGO grammar-constrained box decoding) plugs in and how its algorithm works", "start": "swap"},
-    "s3": {"description": "A real traced decode and the results", "start": "trace"}
+    "s1": {"description": "One-slide summary: where E1 plugs into LocateAnything's decoding loop, how it decides, a real trace and the results", "start": "overview"}
   },
   "faces": {
     "ibm-plex-sans": {"family": "IBM Plex Sans", "href": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"},
