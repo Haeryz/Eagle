@@ -1,0 +1,128 @@
+<section id="dingo" style="background:#F5F4EF;color:#1D2633;font-family:'IBM Plex Sans', Arial, sans-serif;padding:96px">
+<p style="position:absolute;left:96px;top:48px;width:1400px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;letter-spacing:1px;color:#0E7C73">FRAME 5 / 7 · ✚ THE ALGORITHM</p>
+<h2 style="position:absolute;left:96px;top:84px;width:1728px;font-size:52px;font-weight:600;line-height:1.1;color:#1D2633">DINGO's dynamic program on the box grammar</h2>
+<div style="position:absolute;left:96px;top:166px;width:1728px;display:flex;flex-direction:row;gap:8px;align-items:center">
+<p style="font-size:24px;line-height:1.2;color:#5F6773;white-space:nowrap">zoom:</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#EDF1F7;border:2px dashed #4D6C99;color:#2A4468;white-space:nowrap;opacity:0.45">Qwen + LM head</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#ECE7DF;border:2px solid #8A7F70;color:#4D443A;white-space:nowrap;opacity:0.45">① sampling</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;font-weight:700;padding:2px 12px;border-radius:8px;background:#D3EFEA;border:3px solid #0E7C73;color:#0A5E57;white-space:nowrap">✚ constrained box decoder</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#FFF6E0;border:2px solid #D3920F;color:#7A5300;white-space:nowrap;opacity:0.45">③ uncertain-coord rule</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#ECE7DF;border:2px solid #8A7F70;color:#4D443A;white-space:nowrap;opacity:0.45">④ router</p>
+</div>
+<!-- grammar: state cx 210,338,466,594,722,850,978 · rows BOX 344, POINT 474, EMPTY 604 · d 48 · edge mids 274,402,530,658,786,914 -->
+<p style="position:absolute;left:219px;top:236px;width:110px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#5F6773">slot 0</p>
+<p style="position:absolute;left:347px;top:236px;width:110px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#5F6773">slot 1</p>
+<p style="position:absolute;left:475px;top:236px;width:110px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#5F6773">slot 2</p>
+<p style="position:absolute;left:603px;top:236px;width:110px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#5F6773">slot 3</p>
+<p style="position:absolute;left:731px;top:236px;width:110px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#5F6773">slot 4</p>
+<p style="position:absolute;left:859px;top:236px;width:110px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#5F6773">slot 5</p>
+<x-shape kind="ellipse" style="position:absolute;left:186px;top:320px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:314px;top:320px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:442px;top:320px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:570px;top:320px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:698px;top:320px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:826px;top:320px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:954px;top:320px;width:48px;height:48px;background:#D3EFEA;border:6px double #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:698px;top:450px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:826px;top:450px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:954px;top:450px;width:48px;height:48px;background:#D3EFEA;border:6px double #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:442px;top:580px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:570px;top:580px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:698px;top:580px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:826px;top:580px;width:48px;height:48px;background:#FDFCFA;border:3px solid #0E7C73"></x-shape>
+<x-shape kind="ellipse" style="position:absolute;left:954px;top:580px;width:48px;height:48px;background:#D3EFEA;border:6px double #0E7C73"></x-shape>
+<p style="position:absolute;left:186px;top:329px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">q0</p>
+<p style="position:absolute;left:314px;top:329px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">q1</p>
+<p style="position:absolute;left:442px;top:329px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">q2</p>
+<p style="position:absolute;left:570px;top:329px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">q3</p>
+<p style="position:absolute;left:698px;top:329px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">q4</p>
+<p style="position:absolute;left:826px;top:329px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">q5</p>
+<p style="position:absolute;left:954px;top:329px;width:48px;height:30px;text-align:center;font-size:24px;line-height:30px;color:#0A5E57">★</p>
+<p style="position:absolute;left:698px;top:459px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">p1</p>
+<p style="position:absolute;left:826px;top:459px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">p2</p>
+<p style="position:absolute;left:954px;top:459px;width:48px;height:30px;text-align:center;font-size:24px;line-height:30px;color:#0A5E57">★</p>
+<p style="position:absolute;left:442px;top:589px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">e1</p>
+<p style="position:absolute;left:570px;top:589px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">e2</p>
+<p style="position:absolute;left:698px;top:589px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">e3</p>
+<p style="position:absolute;left:826px;top:589px;width:48px;height:30px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:30px;color:#0A5E57">e4</p>
+<p style="position:absolute;left:954px;top:589px;width:48px;height:30px;text-align:center;font-size:24px;line-height:30px;color:#0A5E57">★</p>
+<p style="position:absolute;left:928px;top:374px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;color:#0A5E57">BOX</p>
+<p style="position:absolute;left:928px;top:504px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;color:#0A5E57">POINT</p>
+<p style="position:absolute;left:928px;top:634px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;color:#0A5E57">EMPTY</p>
+<!-- edges -->
+<x-connector x1="234" y1="344" x2="314" y2="344" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="362" y1="344" x2="442" y2="344" style="color:#0E7C73;border-width:6px"></x-connector>
+<x-connector x1="490" y1="344" x2="570" y2="344" style="color:#0E7C73;border-width:6px"></x-connector>
+<x-connector x1="618" y1="344" x2="698" y2="344" style="color:#0E7C73;border-width:6px"></x-connector>
+<x-connector x1="746" y1="344" x2="826" y2="344" style="color:#0E7C73;border-width:6px"></x-connector>
+<x-connector x1="874" y1="344" x2="954" y2="344" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="611" y1="361" x2="705" y2="457" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="746" y1="474" x2="826" y2="474" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="874" y1="474" x2="954" y2="474" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="349" y1="366" x2="455" y2="582" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="490" y1="604" x2="570" y2="604" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="618" y1="604" x2="698" y2="604" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="746" y1="604" x2="826" y2="604" style="color:#1D2633;border-width:3px"></x-connector>
+<x-connector x1="874" y1="604" x2="954" y2="604" style="color:#1D2633;border-width:3px"></x-connector>
+<!-- edge labels -->
+<p style="position:absolute;left:224px;top:284px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;box&gt;</p>
+<p style="position:absolute;left:344px;top:282px;width:116px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;padding:1px 0px;border-radius:14px;background:#D3EFEA;color:#0A5E57">c ×1001</p>
+<p style="position:absolute;left:472px;top:282px;width:116px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;padding:1px 0px;border-radius:14px;background:#D3EFEA;color:#0A5E57">c ×1001</p>
+<p style="position:absolute;left:600px;top:282px;width:116px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;padding:1px 0px;border-radius:14px;background:#D3EFEA;color:#0A5E57">c ×1001</p>
+<p style="position:absolute;left:728px;top:282px;width:116px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;padding:1px 0px;border-radius:14px;background:#D3EFEA;color:#0A5E57">c ×1001</p>
+<p style="position:absolute;left:864px;top:284px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;/box&gt;</p>
+<p style="position:absolute;left:548px;top:420px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;/box&gt;</p>
+<p style="position:absolute;left:736px;top:414px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:864px;top:414px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:290px;top:456px;width:80px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">none</p>
+<p style="position:absolute;left:480px;top:544px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;/box&gt;</p>
+<p style="position:absolute;left:608px;top:544px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:736px;top:544px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:864px;top:544px;width:100px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:96px;top:672px;width:944px;font-size:24px;font-style:italic;line-height:1.2;color:#465161">Tree-shaped: every state has exactly one way in. Slot 0 (grey) is shared.</p>
+<!-- path scores, cells aligned to slots: lefts 214,342,470,598,726,854 w120 -->
+<p style="position:absolute;left:96px;top:712px;width:110px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;color:#1D2633">score</p>
+<p style="position:absolute;left:214px;top:712px;width:826px;font-size:24px;line-height:1.2;color:#1D2633">= Σ log P along the path · max c = best of the 1001 coord tokens</p>
+<p style="position:absolute;left:96px;top:753px;width:110px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;color:#0A5E57">BOX</p>
+<p style="position:absolute;left:96px;top:793px;width:110px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;color:#0A5E57">POINT</p>
+<p style="position:absolute;left:96px;top:833px;width:110px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:1.2;color:#0A5E57">EMPTY</p>
+<p style="position:absolute;left:214px;top:750px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#E4E0D8;border:1px solid #B5AEA2;border-radius:6px;color:#5F6773">&lt;box&gt;</p>
+<p style="position:absolute;left:342px;top:750px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:32px;background:#D3EFEA;border:1px solid #0E7C73;border-radius:6px;color:#0A5E57">max c</p>
+<p style="position:absolute;left:470px;top:750px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:32px;background:#D3EFEA;border:1px solid #0E7C73;border-radius:6px;color:#0A5E57">max c</p>
+<p style="position:absolute;left:598px;top:750px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:32px;background:#D3EFEA;border:1px solid #0E7C73;border-radius:6px;color:#0A5E57">max c</p>
+<p style="position:absolute;left:726px;top:750px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:32px;background:#D3EFEA;border:1px solid #0E7C73;border-radius:6px;color:#0A5E57">max c</p>
+<p style="position:absolute;left:854px;top:750px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">&lt;/box&gt;</p>
+<p style="position:absolute;left:214px;top:790px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#E4E0D8;border:1px solid #B5AEA2;border-radius:6px;color:#5F6773">&lt;box&gt;</p>
+<p style="position:absolute;left:342px;top:790px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:32px;background:#D3EFEA;border:1px solid #0E7C73;border-radius:6px;color:#0A5E57">max c</p>
+<p style="position:absolute;left:470px;top:790px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:700;line-height:32px;background:#D3EFEA;border:1px solid #0E7C73;border-radius:6px;color:#0A5E57">max c</p>
+<p style="position:absolute;left:598px;top:790px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">&lt;/box&gt;</p>
+<p style="position:absolute;left:726px;top:790px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:854px;top:790px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:214px;top:830px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#E4E0D8;border:1px solid #B5AEA2;border-radius:6px;color:#5F6773">&lt;box&gt;</p>
+<p style="position:absolute;left:342px;top:830px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">none</p>
+<p style="position:absolute;left:470px;top:830px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">&lt;/box&gt;</p>
+<p style="position:absolute;left:598px;top:830px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:726px;top:830px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">&lt;null&gt;</p>
+<p style="position:absolute;left:854px;top:830px;width:120px;height:36px;text-align:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:32px;background:#FDFCFA;border:1px solid #0E7C73;border-radius:6px;color:#1D2633">&lt;null&gt;</p>
+<!-- right half: Algorithm 1 mapping -->
+<table style="position:absolute;left:1040px;top:236px;width:784px;font-size:24px;line-height:1.3;color:#1D2633">
+<tr style="background:#E4E0D8"><th style="width:40%;padding:6px 10px;text-align:left">DINGO Algorithm 1 (p. 6)</th><th style="width:60%;padding:6px 10px;text-align:left">On the box grammar (E1)</th></tr>
+<tr><td style="padding:6px 10px">Init: W[0, q0] = 1</td><td style="padding:6px 10px">Every box block starts at &lt;box&gt;</td></tr>
+<tr><td style="padding:6px 10px">Best-token transition V_i(q → q′)</td><td style="padding:6px 10px">c-edge: best of the 1001 coordinate tokens. Fixed edge: P(that token)</td></tr>
+<tr><td style="padding:6px 10px">W[i, q] = max over q′ of W[i−1, q′] · V_i</td><td style="padding:6px 10px">Only one q′ per state, so W = product along the path (we sum log-probs: same winner)</td></tr>
+<tr><td style="padding:6px 10px">q_max = argmax over live states of W[d, q]</td><td style="padding:6px 10px">At slot 6 the live states are exactly the 3 ★: pick the best template</td></tr>
+<tr><td style="padding:6px 10px">Backtrack the parents</td><td style="padding:6px 10px">Emit that template with its chosen coordinates</td></tr>
+</table>
+<p style="position:absolute;left:1040px;top:668px;width:784px;font-size:24px;font-weight:700;line-height:1.2;color:#0A5E57">Not from DINGO:</p>
+<p style="position:absolute;left:1040px;top:704px;width:784px;font-size:24px;line-height:1.2;padding:4px 14px;border-radius:20px;border:2px solid #0E7C73;color:#1D2633">✚ Gate P(&lt;box&gt;) ≥ 0.6: labels and end lie outside the grammar</p>
+<p style="position:absolute;left:1040px;top:750px;width:784px;font-size:24px;line-height:1.2;padding:4px 14px;border-radius:20px;border:2px solid #0E7C73;color:#1D2633">✚ No “no valid string” exit: zero probs floored at 1e-12</p>
+<p style="position:absolute;left:1040px;top:796px;width:784px;font-size:24px;line-height:1.2;padding:4px 14px;border-radius:20px;border:2px solid #0E7C73;color:#1D2633">✚ The uncertain-coordinate rule afterwards is the release's</p>
+<p style="position:absolute;left:96px;top:876px;width:1728px;font-size:28px;line-height:1.25;color:#1D2633">Because the grammar is a tree, DINGO's DP collapses to: <b>score 3 paths, keep the best.</b></p>
+<p style="position:absolute;left:96px;bottom:40px;width:1600px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#5F6773">source · Dingo.pdf p. 6, Algorithm 1 · constrained_box_decode</p>
+<p style="position:absolute;right:96px;bottom:40px;width:120px;text-align:right;font-size:24px;line-height:1.3;color:#5F6773">5 / 7</p>
+<aside>Left: the box grammar as an automaton with 15 states. Columns are window slots 0 to 5 from frame 2. A box block is box-start, four coordinates, box-end; a point is box-start, two coordinates, box-end, null, null; an empty box is box-start, none, box-end, null, null, null. c means any of the 1001 coordinate tokens. Every state has exactly one incoming edge, so the grammar is a tree. Right: DINGO's Algorithm 1 line by line. The best-token transition becomes: best coordinate for c-edges, the fixed token's probability otherwise. The max over predecessors is trivial with one predecessor, so W is the product along the path; summing log-probabilities picks the same winner. At slot 6 the only live states are the three accepting ones, so DINGO picks the best template, and backtracking emits it. In the code slot 0 is not added to any score: it is the same box-start on all three paths. Three things are ours, not DINGO's: the 0.6 gate, no no-valid-string exit (probabilities floored at 1e-12), and the release's uncertainty rule afterwards.</aside>
+</section>

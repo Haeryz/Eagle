@@ -1,0 +1,109 @@
+<section id="swap" style="background:#F5F4EF;color:#1D2633;font-family:'IBM Plex Sans', Arial, sans-serif;padding:96px">
+<p style="position:absolute;left:96px;top:48px;width:1400px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.2;letter-spacing:1px;color:#0E7C73">FRAME 4 / 7 · ✚ E1 ATTACHES HERE</p>
+<h2 style="position:absolute;left:96px;top:84px;width:1728px;font-size:52px;font-weight:600;line-height:1.1;color:#1D2633">E1 swaps one box in the decoding loop</h2>
+<div style="position:absolute;left:96px;top:166px;width:1728px;display:flex;flex-direction:row;gap:8px;align-items:center">
+<p style="font-size:24px;line-height:1.2;color:#5F6773;white-space:nowrap">zoom:</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#D8D3C9;border:2px solid #B5AEA2;color:#4D443A;white-space:nowrap;opacity:0.45">image</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#E1E8F2;border:2px solid #4D6C99;color:#2A4468;white-space:nowrap;opacity:0.45">MoonViT</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#E1E8F2;border:2px solid #4D6C99;color:#2A4468;white-space:nowrap;opacity:0.45">projector</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#E1E8F2;border:2px solid #4D6C99;color:#2A4468;white-space:nowrap;opacity:0.45">merge</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;padding:2px 12px;border-radius:8px;background:#EDF1F7;border:2px dashed #4D6C99;color:#2A4468;white-space:nowrap;opacity:0.45">Qwen + LM head</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;opacity:0.45">→</p>
+<p style="font-size:24px;line-height:1.2;font-weight:700;padding:2px 12px;border-radius:8px;background:#ECE7DF;border:3px solid #8A7F70;color:#4D443A;white-space:nowrap">decoding loop</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773">›</p>
+<p style="font-size:24px;line-height:1.2;font-weight:700;padding:2px 12px;border-radius:8px;background:#D3EFEA;border:3px solid #0E7C73;color:#0A5E57;white-space:nowrap">✚ block decoder</p>
+<p style="font-size:24px;line-height:1.2;color:#5F6773;white-space:nowrap">· faded = unchanged</p>
+</div>
+<!-- E0 row 236–406: Qwen 206,116 · ① 344,136 · ② 502,500 · ③ 1024,140 · ④ 1186,144 -->
+<p style="position:absolute;left:96px;top:270px;width:104px;font-size:44px;font-weight:700;line-height:1.1;color:#1D2633">E0</p>
+<p style="position:absolute;left:96px;top:324px;width:104px;font-size:24px;line-height:1.2;color:#465161">released</p>
+<div style="position:absolute;left:206px;top:236px;width:116px;height:170px;background:#EDF1F7;border:3px dashed #4D6C99;border-radius:14px;opacity:0.4;display:flex;flex-direction:column;justify-content:center;align-items:center">
+<p style="font-size:24px;font-weight:700;line-height:1.25;text-align:center;color:#2A4468">Qwen + LM head</p>
+</div>
+<div style="position:absolute;left:344px;top:236px;width:136px;height:170px;background:#ECE7DF;border:2px solid #8A7F70;border-radius:14px;opacity:0.4;display:flex;flex-direction:column;justify-content:center;align-items:center">
+<p style="font-size:24px;line-height:1.25;text-align:center;color:#4D443A">① sampling transforms</p>
+</div>
+<div style="position:absolute;left:502px;top:236px;width:500px;height:170px;background:#ECE7DF;border:2px solid #8A7F70;border-radius:14px;padding:12px 16px;display:flex;flex-direction:column;gap:4px">
+<p style="font-size:26px;font-weight:700;line-height:1.25;color:#4D443A">② Release block decoder</p>
+<p style="font-size:24px;line-height:1.3;color:#4D443A">Heuristic frame check + top-4 coordinate check → may output a malformed block <span style="color:#8E2F19">(↺ format fallback)</span></p>
+</div>
+<div style="position:absolute;left:1024px;top:236px;width:140px;height:170px;background:#FFF6E0;border:3px solid #D3920F;border-radius:14px;opacity:0.4;display:flex;flex-direction:column;justify-content:center;align-items:center">
+<p style="font-size:24px;line-height:1.25;text-align:center;color:#7A5300">③ uncertain coordinate rule</p>
+</div>
+<div style="position:absolute;left:1186px;top:236px;width:144px;height:170px;background:#ECE7DF;border:2px solid #8A7F70;border-radius:14px;opacity:0.4;display:flex;flex-direction:column;justify-content:center;align-items:center">
+<p style="font-size:24px;line-height:1.25;text-align:center;color:#4D443A">④ router, MTP ⇄ NTP</p>
+</div>
+<!-- E1 row: teal ② 502,430,500,426 · ghosts 553–733 -->
+<p style="position:absolute;left:96px;top:586px;width:104px;font-size:44px;font-weight:700;line-height:1.1;color:#0E7C73">E1</p>
+<p style="position:absolute;left:96px;top:640px;width:104px;font-size:24px;font-weight:600;line-height:1.2;color:#0A5E57">✚ new</p>
+<div style="position:absolute;left:206px;top:553px;width:116px;height:180px;background:#EDF1F7;border:3px dashed #4D6C99;border-radius:14px;opacity:0.4;display:flex;flex-direction:column;justify-content:center;align-items:center">
+<p style="font-size:24px;font-weight:700;line-height:1.25;text-align:center;color:#2A4468">Qwen + LM head</p>
+</div>
+<div style="position:absolute;left:344px;top:553px;width:136px;height:180px;background:#ECE7DF;border:2px solid #8A7F70;border-radius:14px;opacity:0.4;display:flex;flex-direction:column;justify-content:center;align-items:center">
+<p style="font-size:24px;line-height:1.25;text-align:center;color:#4D443A">① sampling transforms</p>
+</div>
+<div style="position:absolute;left:502px;top:430px;width:500px;height:426px;background:#D3EFEA;border:4px solid #0E7C73;border-radius:16px;padding:14px 20px;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:26px;font-weight:700;line-height:1.25;color:#0A5E57">✚ Constrained box decoder</p>
+<p style="font-size:24px;line-height:1.3;color:#0A5E57">DINGO, NeurIPS 2025 · see frame 5</p>
+<p style="font-size:24px;line-height:1.3;color:#1D2633"><b>1</b>&#160; Gate: P(&lt;box&gt;) at slot 0 ≥ 0.6?</p>
+<p style="font-size:24px;line-height:1.3;color:#465161">&#160;&#160;&#160;&#160;No → release decoder, unchanged (labels, end-of-output). Yes ↓</p>
+<p style="font-size:24px;line-height:1.3;color:#1D2633"><b>2</b>&#160; Coordinate slots: only the 1001 coordinate tokens (no text)</p>
+<p style="font-size:24px;line-height:1.3;color:#1D2633"><b>3</b>&#160; Score the 3 legal templates, keep the best</p>
+<p style="font-size:24px;line-height:1.3;color:#1D2633"><b>4</b>&#160; Hand off to the same amber rule, untouched</p>
+</div>
+<div style="position:absolute;left:1024px;top:553px;width:140px;height:180px;background:#FFF6E0;border:3px solid #D3920F;border-radius:14px;opacity:0.4;display:flex;flex-direction:column;justify-content:center;align-items:center">
+<p style="font-size:24px;line-height:1.25;text-align:center;color:#7A5300">③ uncertain coordinate rule</p>
+</div>
+<div style="position:absolute;left:1186px;top:553px;width:144px;height:180px;background:#ECE7DF;border:2px solid #8A7F70;border-radius:14px;opacity:0.4;display:flex;flex-direction:column;justify-content:center;align-items:center">
+<p style="font-size:24px;line-height:1.25;text-align:center;color:#4D443A">④ router, MTP ⇄ NTP</p>
+</div>
+<p style="position:absolute;left:206px;top:742px;width:274px;font-size:24px;font-style:italic;line-height:1.2;color:#5F6773">unchanged</p>
+<p style="position:absolute;left:1024px;top:742px;width:306px;font-size:24px;font-style:italic;line-height:1.2;color:#5F6773">unchanged</p>
+<!-- right column 1370–1824 -->
+<p style="position:absolute;left:1370px;top:236px;width:454px;font-size:24px;font-weight:700;line-height:1.2;color:#1D2633">E0 can output, e.g.:</p>
+<p style="position:absolute;left:1370px;top:276px;width:88px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#FDFCFA;border:2px solid #CC4E33;border-radius:6px;color:#8E2F19">&lt;box&gt;</p>
+<p style="position:absolute;left:1462px;top:276px;width:60px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#FDFCFA;border:2px solid #CC4E33;border-radius:6px;color:#8E2F19">412</p>
+<p style="position:absolute;left:1526px;top:276px;width:60px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#FDFCFA;border:2px solid #CC4E33;border-radius:6px;color:#8E2F19">car</p>
+<p style="position:absolute;left:1590px;top:276px;width:60px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#FDFCFA;border:2px solid #CC4E33;border-radius:6px;color:#8E2F19">530</p>
+<p style="position:absolute;left:1654px;top:276px;width:102px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#FDFCFA;border:2px solid #CC4E33;border-radius:6px;color:#8E2F19">&lt;/box&gt;</p>
+<p style="position:absolute;left:1370px;top:332px;width:454px;font-size:24px;font-style:italic;line-height:1.2;color:#8E2F19">illustrative · ↺ format fallback</p>
+<div style="position:absolute;left:1370px;top:436px;width:454px;display:flex;flex-direction:column;gap:8px">
+<p style="font-size:34px;font-weight:700;line-height:1.15;color:#0A5E57">✚ The only change in E1.</p>
+<p style="font-size:24px;line-height:1.3;color:#1D2633">No training. Same weights. Off by default (--constrained_block).</p>
+</div>
+<p style="position:absolute;left:1370px;top:640px;width:454px;font-size:24px;font-weight:700;line-height:1.2;color:#1D2633">E1 can only output:</p>
+<p style="position:absolute;left:1370px;top:680px;width:88px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">&lt;box&gt;</p>
+<p style="position:absolute;left:1462px;top:680px;width:34px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">c</p>
+<p style="position:absolute;left:1500px;top:680px;width:34px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">c</p>
+<p style="position:absolute;left:1538px;top:680px;width:34px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">c</p>
+<p style="position:absolute;left:1576px;top:680px;width:34px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">c</p>
+<p style="position:absolute;left:1614px;top:680px;width:102px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">&lt;/box&gt;</p>
+<p style="position:absolute;left:1370px;top:732px;width:88px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">&lt;box&gt;</p>
+<p style="position:absolute;left:1462px;top:732px;width:34px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">c</p>
+<p style="position:absolute;left:1500px;top:732px;width:34px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">c</p>
+<p style="position:absolute;left:1538px;top:732px;width:102px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">&lt;/box&gt;</p>
+<p style="position:absolute;left:1644px;top:732px;width:132px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">&lt;null&gt;×2</p>
+<p style="position:absolute;left:1370px;top:784px;width:88px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">&lt;box&gt;</p>
+<p style="position:absolute;left:1462px;top:784px;width:74px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">none</p>
+<p style="position:absolute;left:1540px;top:784px;width:102px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">&lt;/box&gt;</p>
+<p style="position:absolute;left:1646px;top:784px;width:132px;height:42px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:38px;text-align:center;background:#D3EFEA;border:2px solid #0E7C73;border-radius:6px;color:#0A5E57">&lt;null&gt;×3</p>
+<!-- connectors -->
+<x-connector x1="322" y1="321" x2="342" y2="321" style="color:#8A7F70;border-width:3px;opacity:0.4"></x-connector>
+<x-connector x1="480" y1="321" x2="500" y2="321" style="color:#8A7F70;border-width:3px;opacity:0.4"></x-connector>
+<x-connector x1="1002" y1="321" x2="1022" y2="321" style="color:#8A7F70;border-width:3px;opacity:0.4"></x-connector>
+<x-connector x1="1164" y1="321" x2="1184" y2="321" style="color:#8A7F70;border-width:3px;opacity:0.4"></x-connector>
+<x-connector x1="322" y1="643" x2="342" y2="643" style="color:#8A7F70;border-width:3px;opacity:0.4"></x-connector>
+<x-connector x1="480" y1="643" x2="500" y2="643" style="color:#8A7F70;border-width:3px"></x-connector>
+<x-connector x1="1002" y1="643" x2="1022" y2="643" style="color:#0E7C73;border-width:3px"></x-connector>
+<x-connector x1="1164" y1="643" x2="1184" y2="643" style="color:#8A7F70;border-width:3px;opacity:0.4"></x-connector>
+<x-connector x1="1362" y1="297" x2="1764" y2="297" head="none" style="color:#CC4E33;border-width:4px"></x-connector>
+<x-connector x1="1362" y1="470" x2="1008" y2="470" style="color:#0E7C73;border-width:5px"></x-connector>
+<p style="position:absolute;left:96px;top:876px;width:1728px;font-size:28px;line-height:1.25;color:#1D2633">✚ E1 removes format fallbacks on box blocks by construction. <b>It does not touch the uncertainty rule, which causes ≥ 96% of fallbacks.</b></p>
+<p style="position:absolute;left:96px;bottom:40px;width:1600px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.3;color:#5F6773">source · constrained_box_decode · hook in sample_tokens (constrained_block flag, default off)</p>
+<p style="position:absolute;right:96px;bottom:40px;width:120px;text-align:right;font-size:24px;line-height:1.3;color:#5F6773">4 / 7</p>
+<aside>Frame 3's pipeline twice. Top: E0, the release. Bottom: E1. Everything is identical and faded except box 2. E0's block decoder is a heuristic frame check plus a top-4 coordinate check and can emit a malformed block, which triggers a format fallback. E1's constrained decoder: (1) gate on P(box) at slot 0 of at least 0.6; if not, the block is handed to the release decoder unchanged (labels, end of output); (2) restrict coordinate slots to the 1001 coordinate tokens; (3) score the three legal templates and keep the best; (4) pass the result to the same uncertain-coordinate rule. No training, same weights, off by default. E1 sits outside Qwen, on the path from LM-head probabilities to committed tokens. Caveat for questions: the original model's few remaining format fallbacks come from blocks with P(box) below 0.6, which the gate leaves to the release decoder.</aside>
+</section>
