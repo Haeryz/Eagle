@@ -1,6 +1,7 @@
 <section id="overview" style="background:#F5F4EF;color:#1D2633;font-family:'IBM Plex Sans', Arial, sans-serif;padding:64px">
-<h2 style="position:absolute;left:64px;top:40px;width:1792px;font-size:52px;font-weight:600;line-height:1.1;color:#1D2633">E1 lives in the decoding loop, not in the model</h2>
-<div style="position:absolute;left:64px;top:108px;width:1792px;display:flex;flex-direction:row;gap:8px;align-items:center">
+<p style="position:absolute;left:64px;top:14px;width:1792px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.15;letter-spacing:1px;color:#4D6C99;white-space:nowrap">LOCATEANYTHING-3B · WEEK 1 · E1 = DINGO GRAMMAR-CONSTRAINED BOX DECODING</p>
+<h2 style="position:absolute;left:64px;top:50px;width:1792px;font-size:52px;font-weight:600;line-height:1.1;color:#1D2633">E1 lives in the decoding loop, not in the model</h2>
+<div style="position:absolute;left:64px;top:114px;width:1792px;display:flex;flex-direction:row;gap:8px;align-items:center">
 <p style="font-size:28px;line-height:1.2;padding:2px 8px;border-radius:8px;background:#E1E8F2;border:2px solid #4D6C99;color:#2A4468;white-space:nowrap">Neural (unchanged)</p>
 <p style="font-size:28px;line-height:1.2;padding:2px 8px;border-radius:8px;background:#ECE7DF;border:2px solid #8A7F70;color:#4D443A;white-space:nowrap">Decoding logic (unchanged)</p>
 <p style="font-size:28px;line-height:1.2;padding:2px 8px;border-radius:8px;background:#D3EFEA;border:3px solid #0E7C73;color:#0A5E57;font-weight:600;white-space:nowrap">✚ E1 (new, Week 1)</p>
@@ -25,14 +26,14 @@
 <p style="position:absolute;left:380px;top:252px;width:220px;text-align:center;font-size:28px;line-height:1.2;color:#465161">text tokens</p>
 <div style="position:absolute;left:896px;top:166px;width:450px;height:160px;background:#EDF1F7;border:3px dashed #4D6C99;border-radius:18px"></div>
 <p style="position:absolute;left:912px;top:172px;width:420px;font-size:28px;font-weight:700;line-height:1.2;color:#2A4468">Qwen2.5-3B: unchanged</p>
-<div style="position:absolute;left:914px;top:216px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
-<div style="position:absolute;left:936px;top:216px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
-<div style="position:absolute;left:958px;top:216px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
-<div style="position:absolute;left:980px;top:216px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
-<div style="position:absolute;left:1002px;top:216px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
-<div style="position:absolute;left:1024px;top:216px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
-<p style="position:absolute;left:1054px;top:226px;width:280px;font-size:28px;line-height:1.2;color:#2A4468">36 layers · 2048-d</p>
-<p style="position:absolute;left:912px;top:280px;width:418px;height:38px;font-size:28px;line-height:34px;text-align:center;background:#E1E8F2;border:2px solid #4D6C99;border-radius:8px;color:#2A4468">LM head (tied) → 152,681</p>
+<p style="position:absolute;left:912px;top:212px;width:418px;height:38px;font-size:28px;line-height:34px;text-align:center;background:#E1E8F2;border:2px solid #4D6C99;border-radius:8px;color:#2A4468">LM head (tied) → 152,681</p>
+<div style="position:absolute;left:914px;top:260px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
+<div style="position:absolute;left:936px;top:260px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
+<div style="position:absolute;left:958px;top:260px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
+<div style="position:absolute;left:980px;top:260px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
+<div style="position:absolute;left:1002px;top:260px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
+<div style="position:absolute;left:1024px;top:260px;width:14px;height:56px;background:#E1E8F2;border:2px solid #4D6C99;border-radius:3px"></div>
+<p style="position:absolute;left:1054px;top:270px;width:280px;font-size:28px;line-height:1.2;color:#2A4468">36 layers · 2048-d</p>
 <p style="position:absolute;left:1406px;top:184px;width:100px;text-align:center;font-size:28px;line-height:1.2;color:#465161">logits</p>
 <div style="position:absolute;left:1566px;top:166px;width:260px;height:125px;background:#ECE7DF;border:2px solid #8A7F70;border-radius:12px;padding:6px 12px;display:flex;flex-direction:column">
 <p style="font-size:28px;font-weight:700;line-height:1.25;color:#4D443A">① sample</p>
@@ -68,17 +69,17 @@
 <x-connector x1="498" y1="207" x2="520" y2="207" style="color:#4D6C99;border-width:3px"></x-connector>
 <x-connector x1="752" y1="207" x2="774" y2="207" style="color:#4D6C99;border-width:3px"></x-connector>
 <x-connector x1="184" y1="294" x2="774" y2="294" style="color:#4D6C99;border-width:3px"></x-connector>
-<x-connector x1="872" y1="246" x2="894" y2="246" style="color:#4D6C99;border-width:3px"></x-connector>
-<x-connector x1="1150" y1="348" x2="1150" y2="328" style="color:#4D6C99;border-width:3px"></x-connector>
-<x-connector x1="1346" y1="226" x2="1564" y2="226" style="color:#4D6C99;border-width:3px"></x-connector>
+<x-connector x1="872" y1="290" x2="894" y2="290" style="color:#4D6C99;border-width:3px"></x-connector>
+<x-connector x1="976" y1="348" x2="976" y2="328" style="color:#4D6C99;border-width:3px"></x-connector>
+<x-connector x1="1346" y1="231" x2="1564" y2="231" style="color:#4D6C99;border-width:3px"></x-connector>
 <x-connector x1="1696" y1="291" x2="1696" y2="410" style="color:#8A7F70;border-width:3px"></x-connector>
 <x-connector x1="1452" y1="484" x2="1412" y2="484" style="color:#0E7C73;border-width:3px"></x-connector>
 <x-connector x1="1190" y1="484" x2="1152" y2="484" style="color:#8A7F70;border-width:3px"></x-connector>
 <x-connector x1="960" y1="412" x2="960" y2="394" style="color:#8A7F70;border-width:3px"></x-connector>
 <x-connector x1="1826" y1="228" x2="1884" y2="228" head="none" style="color:#8A8F98;border-width:2px"></x-connector>
 <x-connector x1="1884" y1="228" x2="1884" y2="566" head="none" style="color:#8A8F98;border-width:2px"></x-connector>
-<x-connector x1="1884" y1="566" x2="1300" y2="566" head="none" style="color:#8A8F98;border-width:2px"></x-connector>
-<x-connector x1="1300" y1="566" x2="1300" y2="558" style="color:#8A8F98;border-width:2px"></x-connector>
+<x-connector x1="1884" y1="566" x2="1100" y2="566" head="none" style="color:#8A8F98;border-width:2px"></x-connector>
+<x-connector x1="1100" y1="566" x2="1100" y2="558" style="color:#8A8F98;border-width:2px"></x-connector>
 <!-- PANEL A 64,618,580,394 -->
 <div style="position:absolute;left:64px;top:618px;width:580px;height:394px;background:#FBFAF7;border:3px solid #0E7C73;border-radius:14px"></div>
 <p style="position:absolute;left:82px;top:630px;width:550px;font-size:28px;font-weight:700;line-height:1.2;color:#0A5E57">✚ How E1 decides: DINGO's DP</p>
@@ -116,16 +117,55 @@
 <!-- PANEL C 1226,618,630,394 -->
 <div style="position:absolute;left:1226px;top:618px;width:630px;height:394px;background:#FBFAF7;border:2px solid #D9D3C7;border-radius:14px"></div>
 <p style="position:absolute;left:1244px;top:630px;width:594px;font-size:28px;font-weight:700;line-height:1.2;color:#1D2633">Result, E0 → E1</p>
-<table style="position:absolute;left:1242px;top:674px;width:598px;font-size:28px;line-height:1.2;font-variant-numeric:tabular-nums;color:#1D2633">
-<tr style="background:#E4E0D8"><th style="width:37%;padding:2px 4px;text-align:left">Benchmark</th><th style="width:31.5%;padding:2px 4px;text-align:left">F1</th><th style="width:31.5%;padding:2px 4px;text-align:left">Fallback %</th></tr>
-<tr><td style="padding:2px 4px">COCO*</td><td style="padding:2px 4px">55.31 → 55.45</td><td style="padding:2px 4px">18.47 → 18.42</td></tr>
-<tr><td style="padding:2px 4px">LVIS*</td><td style="padding:2px 4px">53.18 → 53.86</td><td style="padding:2px 4px">22.65 → 22.30</td></tr>
-<tr><td style="padding:2px 4px">RefCOCOg val</td><td style="padding:2px 4px">74.12 → 74.20</td><td style="padding:2px 4px">19.00 → 19.00</td></tr>
-<tr><td style="padding:2px 4px">RefCOCOg test</td><td style="padding:2px 4px">78.96 → 78.98</td><td style="padding:2px 4px">13.80 → 13.80</td></tr>
-<tr><td style="padding:2px 4px">Dense200</td><td style="padding:2px 4px">59.52 → 58.96</td><td style="padding:2px 4px">26.13 → 26.50</td></tr>
-<tr><td style="padding:2px 4px">SROIE</td><td style="padding:2px 4px">39.17 → 39.00</td><td style="padding:2px 4px">6.38 → 5.86</td></tr>
-</table>
-<p style="position:absolute;left:1244px;top:968px;width:594px;font-size:28px;line-height:1.2;color:#1D2633">Format fallbacks: &lt;1% before and after.</p>
+<!-- results grid: label 1244–1436 · F1 E0 1448–1536 · F1 E1 1544–1632 · FB E0 1660–1748 · FB E1 1752–1840 · rows 36px from 748 -->
+<p style="position:absolute;left:1448px;top:672px;width:184px;text-align:center;font-size:28px;font-weight:700;line-height:1.2;color:#1D2633;white-space:nowrap">F1</p>
+<p style="position:absolute;left:1660px;top:672px;width:180px;text-align:center;font-size:28px;font-weight:700;line-height:1.2;color:#1D2633;white-space:nowrap">Fallback %</p>
+<p style="position:absolute;left:1244px;top:706px;width:192px;font-size:28px;font-weight:700;line-height:1.2;color:#1D2633;white-space:nowrap">Benchmark</p>
+<p style="position:absolute;left:1448px;top:706px;width:88px;text-align:right;font-size:28px;font-weight:700;line-height:1.2;color:#6B6F76;white-space:nowrap">E0</p>
+<p style="position:absolute;left:1544px;top:706px;width:88px;text-align:right;font-size:28px;font-weight:700;line-height:1.2;color:#0A5E57;white-space:nowrap">E1 ✚</p>
+<p style="position:absolute;left:1660px;top:706px;width:88px;text-align:right;font-size:28px;font-weight:700;line-height:1.2;color:#6B6F76;white-space:nowrap">E0</p>
+<p style="position:absolute;left:1752px;top:706px;width:88px;text-align:right;font-size:28px;font-weight:700;line-height:1.2;color:#0A5E57;white-space:nowrap">E1 ✚</p>
+<div style="position:absolute;left:1244px;top:742px;width:596px;height:2px;background:#8A7F70"></div>
+<p style="position:absolute;left:1244px;top:750px;width:192px;font-size:28px;line-height:1.2;color:#1D2633;white-space:nowrap">COCO*</p>
+<p style="position:absolute;left:1244px;top:786px;width:192px;font-size:28px;line-height:1.2;color:#1D2633;white-space:nowrap">LVIS*</p>
+<p style="position:absolute;left:1244px;top:822px;width:192px;font-size:28px;line-height:1.2;color:#1D2633;white-space:nowrap">RefCOCOg val</p>
+<p style="position:absolute;left:1244px;top:858px;width:192px;font-size:28px;line-height:1.2;color:#1D2633;white-space:nowrap">RefCOCOg test</p>
+<p style="position:absolute;left:1244px;top:894px;width:192px;font-size:28px;line-height:1.2;color:#1D2633;white-space:nowrap">Dense200</p>
+<p style="position:absolute;left:1244px;top:930px;width:192px;font-size:28px;line-height:1.2;color:#1D2633;white-space:nowrap">SROIE</p>
+<div style="position:absolute;left:1448px;top:750px;width:88px;display:flex;flex-direction:column;align-items:end">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">55.31</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">53.18</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">74.12</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">78.96</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">59.52</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">39.17</p>
+</div>
+<div style="position:absolute;left:1544px;top:750px;width:88px;display:flex;flex-direction:column;align-items:end">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">55.45</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">53.86</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">74.20</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">78.98</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">58.96</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">39.00</p>
+</div>
+<div style="position:absolute;left:1660px;top:750px;width:88px;display:flex;flex-direction:column;align-items:end">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">18.47</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">22.65</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">19.00</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">13.80</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">26.13</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:36px;text-align:right;color:#1D2633;white-space:nowrap">6.38</p>
+</div>
+<div style="position:absolute;left:1752px;top:750px;width:88px;display:flex;flex-direction:column;align-items:end">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">18.42</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">22.30</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">19.00</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">13.80</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">26.50</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;line-height:36px;text-align:right;color:#0A5E57;white-space:nowrap">5.86</p>
+</div>
+<div style="position:absolute;left:1244px;top:968px;width:596px;height:2px;background:#D9D3C7"></div>
+<p style="position:absolute;left:1244px;top:974px;width:596px;font-size:28px;line-height:1.2;color:#1D2633;white-space:nowrap">Format fallbacks: &lt;1% before and after.</p>
 <p style="position:absolute;left:64px;bottom:18px;width:1792px;font-size:28px;line-height:1.2;color:#5F6773;white-space:nowrap">source · generate_utils.py: constrained_box_decode · Dingo.pdf Alg. 1 · W&amp;B eval-E0/E1-hybrid-* · *official FastEvaluate</p>
 <aside>One-slide version of the E1 story. Top row: the image goes through MoonViT and the MLP projector; the prompt is tokenized as text and skips the vision encoder; both are merged and fed to Qwen2.5-3B, which is unchanged. Each forward also takes the 6-slot drafting window, an anchor plus 5 mask tokens, and returns 6 x 152,681 logits. Everything after that is the decoding loop, outside Qwen: (1) sampling turns logits into probabilities; (2) E1, the only change, picks the best of 3 legal templates; label and end blocks with P(box) below 0.6 bypass it to the original decoder; (3) the unchanged uncertainty rule flags coordinates with top-1 below 0.9 and top-4 spread over 60; (4) the router commits the block, or falls back: it commits the box start and the coordinates before the flagged one, then decodes 1 token per forward until the box end and returns to parallel mode. Committed tokens are appended and the next window starts. Bottom left: E1 is DINGO's DP on a 3-template tree grammar, so it scores 3 paths and keeps the best. Bottom middle: on forward 2 of the real trace E1 picks BOX (-4.88), but x1 is flagged (top-1 0.183, candidates spanning 0 to 368), so NTP redoes x1 to y2. Bottom right: alone, E1 is within noise on six benchmarks; format fallbacks were under 1% before and after. Fallback is a confidence problem, so Week 2 trains the model to be less uncertain; on top of that training, E1 cuts LVIS format fallbacks from 1.34% to 0.76% (E3).</aside>
 </section>
